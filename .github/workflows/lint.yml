@@ -9,7 +9,7 @@ jobs:
   ktlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download ktlint
         # Pinned version, MIT licensed, https://github.com/ktlint/ktlint
@@ -24,13 +24,13 @@ jobs:
   webui-js:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: node --check module/webroot/app.js
 
   clang-format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check native/ formatting
         run: |
