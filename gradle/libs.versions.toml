@@ -11,7 +11,7 @@
 [versions]
 kotlin = "2.4.10"
 compose-multiplatform = "1.11.1"
-junit = "5.10.2"
+junit = "6.1.2"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.7.1"
 
