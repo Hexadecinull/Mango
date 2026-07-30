@@ -1,0 +1,6 @@
+id=mango
+name=Mango
+version=v0.1.0-dev
+versionCode=1
+author=Mango contributors
+description=Native bridge translator that lets 32-bit-only (armeabi-v7a) apps run on 64-bit-only (arm64-v8a) devices. See docs/ARCHITECTURE.md in the main repo.

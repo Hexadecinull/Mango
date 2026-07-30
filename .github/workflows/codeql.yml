@@ -1,0 +1,48 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 4 * * 1"
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: none
+          - language: cpp
+            build-mode: manual
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      # native/ isn't wired into CI's default build yet (see docs/BUILDING.md),
+      # so the cpp scan needs its own manual build step. Skips cleanly if
+      # there's no NDK toolchain configured, so this doesn't block the
+      # java-kotlin scan.
+      - name: Build native/ for CodeQL
+        if: matrix.language == 'cpp'
+        run: |
+          if [ -f native/CMakeLists.txt ]; then
+            cmake -S native -B native/build-codeql || true
+            cmake --build native/build-codeql || true
+          fi
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

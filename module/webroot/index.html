@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mango</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="screen">
+    <header class="header">
+      <h1>🥭 Mango</h1>
+      <p class="tagline">ARM32 → ARM64 native bridge translator</p>
+    </header>
+
+    <section class="card" id="status-card">
+      <h2>Status</h2>
+      <div id="status-body">Checking…</div>
+    </section>
+
+    <section class="card">
+      <h2>Pick an app</h2>
+      <label class="field">
+        Installed apps
+        <select id="app-select">
+          <option value="">Loading…</option>
+        </select>
+      </label>
+
+      <label class="field">
+        …or a path to an APK
+        <input id="path-input" type="text" placeholder="/sdcard/Download/example.apk" />
+      </label>
+
+      <button id="check-button" disabled>Check compatibility</button>
+    </section>
+
+    <section class="card hidden" id="result-card">
+      <h2 id="result-title"></h2>
+      <ul id="result-notes"></ul>
+      <button id="install-button" class="hidden">Install</button>
+    </section>
+
+    <section class="card">
+      <label class="field-inline">
+        <input type="checkbox" id="advanced-toggle" />
+        Show command log (advanced)
+      </label>
+      <pre id="log" class="log hidden"></pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

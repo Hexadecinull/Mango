@@ -1,0 +1,27 @@
+# Version catalog for Mango.
+# Versions below were verified as real, current releases as of mid-2026.
+# Tooling in this space moves fast, so check for newer patch releases before
+# you build: https://kotlinlang.org/docs/releases.html and each library's
+# own releases page.
+#
+# No AGP/AndroidX entries here on purpose: the on-device UI is a WebUI in
+# module/webroot/ (plain HTML/JS, no Gradle build at all), not an Android
+# app module. See docs/ARCHITECTURE.md.
+
+[versions]
+kotlin = "2.4.10"
+compose-multiplatform = "1.11.1"
+junit = "5.10.2"
+kotlinx-coroutines = "1.8.1"
+kotlinx-serialization = "1.7.1"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

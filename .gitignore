@@ -1,0 +1,45 @@
+# Gradle
+.gradle/
+**/build/
+!module/**/build.sh
+local.properties
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+.cxx/
+captures/
+
+# Native (CMake)
+native/build/
+native/out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Compose Desktop packaging output
+desktop/build/
+
+# Prebuilt translator .so copied in by scripts/build_native.sh.
+# Tracked as a build artifact, not source; see docs/BUILDING.md.
+app/src/main/assets/translator/**/*.so
+desktop/src/main/resources/translator/**/*.so
+module/system/**/*.so
+build/mango-module.zip
+
+# Signing (never commit real keys)
+*.jks
+*.keystore
+keystore.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

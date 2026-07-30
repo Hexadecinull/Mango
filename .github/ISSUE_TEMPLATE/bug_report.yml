@@ -1,0 +1,68 @@
+name: Bug report
+description: Something didn't work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Please check open issues first so we're not duplicating.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: >-
+            This report is about running an app I already own that lost 32-bit
+            support, not about bypassing a purchase, license check, or DRM.
+            See docs/TERMS.md.
+          required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - WebUI (module/webroot)
+        - Desktop app
+        - Native translator
+        - Magisk/KernelSU/APatch module (non-WebUI)
+        - Docs
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        Device/SoC, Android version, root solution and version
+        (Magisk/KernelSU/KernelSU-Next/APatch), and the app you were
+        trying to run if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >-
+        The WebUI's command log (turn on "Show command log (advanced)"),
+        or logcat, if you have one. Paste as text, not a screenshot.
+      render: shell

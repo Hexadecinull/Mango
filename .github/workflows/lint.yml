@@ -1,0 +1,43 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ktlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download ktlint
+        # Pinned version, MIT licensed, https://github.com/ktlint/ktlint
+        # Check for a newer release before bumping.
+        run: |
+          curl -sSLo ktlint https://github.com/ktlint/ktlint/releases/download/1.7.0/ktlint
+          chmod +x ktlint
+
+      - name: Run ktlint
+        run: ./ktlint "core/**/*.kt" "desktop/**/*.kt" "!**/build/**"
+
+  webui-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --check module/webroot/app.js
+
+  clang-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check native/ formatting
+        run: |
+          shopt -s globstar nullglob
+          files=(native/**/*.c native/**/*.cpp native/**/*.h native/**/*.hpp)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No native source files yet, skipping."
+            exit 0
+          fi
+          clang-format --dry-run --Werror "${files[@]}"
