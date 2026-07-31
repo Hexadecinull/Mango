@@ -53,9 +53,12 @@ See `docs/ARCHITECTURE.md` for how these fit together, and
 
 - Kotlin: follow the official Kotlin style guide
   (`kotlin.code.style=official` is already set in `gradle.properties`).
-  Let ktlint (run by the lint CI) settle formatting arguments.
-- C/C++: match the style already in the file you're editing. If you're
-  adding a new file, see `native/README.md`.
+  Let ktlint (run by the lint CI) settle formatting arguments. Composable
+  functions are exempted from the naming rule via `.editorconfig`, that's
+  intentional, not a gap to fix.
+- C/C++: formatted per `.clang-format` (Google-based, 2-space indent, left
+  pointer alignment). Run `scripts/format_native.sh` before committing, or
+  the lint CI's `clang-format --dry-run` will flag it.
 - Comments should explain *why*, not restate the code. Skip comments that
   just narrate what the next line obviously does.
 - Commit messages: a short summary line, and a body if the "why" isn't

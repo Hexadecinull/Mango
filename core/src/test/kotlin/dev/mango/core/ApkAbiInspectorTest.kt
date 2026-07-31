@@ -10,8 +10,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ApkAbiInspectorTest {
-
-    private fun fakeApk(dir: File, vararg libPaths: String): File {
+    private fun fakeApk(
+        dir: File,
+        vararg libPaths: String,
+    ): File {
         val apk = File(dir, "fake.apk")
         ZipOutputStream(apk.outputStream()).use { zip ->
             zip.putNextEntry(ZipEntry("AndroidManifest.xml"))
@@ -27,7 +29,9 @@ class ApkAbiInspectorTest {
     }
 
     @Test
-    fun `detects a single supported abi`(@TempDir dir: File) {
+    fun `detects a single supported abi`(
+        @TempDir dir: File,
+    ) {
         val apk = fakeApk(dir, "lib/arm64-v8a/libfoo.so")
         val info = ApkAbiInspector.inspect(apk)
         assertEquals(setOf(Abi.ARM64_V8A), info.abisPresent)
@@ -35,24 +39,30 @@ class ApkAbiInspectorTest {
     }
 
     @Test
-    fun `detects a 32-bit-only app`(@TempDir dir: File) {
+    fun `detects a 32-bit-only app`(
+        @TempDir dir: File,
+    ) {
         val apk = fakeApk(dir, "lib/armeabi-v7a/libfoo.so", "lib/armeabi-v7a/libbar.so")
         val info = ApkAbiInspector.inspect(apk)
         assertEquals(setOf(Abi.ARMEABI_V7A), info.abisPresent)
     }
 
     @Test
-    fun `detects multiple abis`(@TempDir dir: File) {
+    fun `detects multiple abis`(
+        @TempDir dir: File,
+    ) {
         val apk = fakeApk(dir, "lib/armeabi-v7a/libfoo.so", "lib/arm64-v8a/libfoo.so")
         val info = ApkAbiInspector.inspect(apk)
         assertEquals(setOf(Abi.ARMEABI_V7A, Abi.ARM64_V8A), info.abisPresent)
     }
 
     @Test
-    fun `app with no native libs at all`(@TempDir dir: File) {
+    fun `app with no native libs at all`(
+        @TempDir dir: File,
+    ) {
         val apk = fakeApk(dir)
         val info = ApkAbiInspector.inspect(apk)
-        assertEquals(emptySet(), info.abisPresent)
+        assertEquals(emptySet<Abi>(), info.abisPresent)
         assertFalse(info.hasAnyNativeLibs)
     }
 }

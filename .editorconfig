@@ -1,0 +1,9 @@
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+# Composable functions are conventionally PascalCase (App(), HomeScreen()),
+# not the lowerCamelCase ktlint expects by default. This tells the
+# function-naming rule to skip anything annotated @Composable instead of
+# disabling the rule entirely, everything else still gets checked.
+ktlint_function_naming_ignore_when_annotated_with = Composable

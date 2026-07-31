@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class CompatibilityCheckerTest {
-
     @Test
     fun `native abi present runs natively`() {
         val apk = ApkAbiInfo(abisPresent = setOf(Abi.ARM64_V8A), hasAnyNativeLibs = true)
@@ -28,7 +27,7 @@ class CompatibilityCheckerTest {
 
     @Test
     fun `app with no native libs runs natively trivially`() {
-        val apk = ApkAbiInfo(abisPresent = emptySet(), hasAnyNativeLibs = false)
+        val apk = ApkAbiInfo(abisPresent = emptySet<Abi>(), hasAnyNativeLibs = false)
         val device = DeviceProfile(supportedAbis = setOf(Abi.ARM64_V8A), nativeBridgeActive = false)
         assertEquals(Verdict.RUNS_NATIVELY, CompatibilityChecker.check(apk, device).verdict)
     }

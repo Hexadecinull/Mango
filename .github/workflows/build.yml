@@ -36,6 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Set up NDK
+        id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r27c

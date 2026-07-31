@@ -24,8 +24,12 @@ int mango_decode(uint32_t word, MangoInsn* out) {
       return -1; /* BL not handled yet */
     }
     uint32_t imm24 = word & 0xFFFFFF;
-    uint32_t offset = (imm24 & 0x800000) ? ((imm24 | 0xFF000000u) << 2)
-                                          : (imm24 << 2);
+    uint32_t offset;
+    if (imm24 & 0x800000) {
+      offset = (imm24 | 0xFF000000u) << 2;
+    } else {
+      offset = imm24 << 2;
+    }
     out->op = MANGO_OP_B;
     out->imm = offset; /* two's complement offset, added as unsigned */
     return 0;
@@ -42,11 +46,20 @@ int mango_decode(uint32_t word, MangoInsn* out) {
     MangoOp op;
 
     switch (opcode) {
-      case 0x4: op = MANGO_OP_ADD; break;
-      case 0x2: op = MANGO_OP_SUB; break;
-      case 0xD: op = MANGO_OP_MOV; break;
-      case 0xA: op = MANGO_OP_CMP; break;
-      default: return -1;
+      case 0x4:
+        op = MANGO_OP_ADD;
+        break;
+      case 0x2:
+        op = MANGO_OP_SUB;
+        break;
+      case 0xD:
+        op = MANGO_OP_MOV;
+        break;
+      case 0xA:
+        op = MANGO_OP_CMP;
+        break;
+      default:
+        return -1;
     }
 
     out->op = op;

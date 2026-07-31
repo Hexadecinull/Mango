@@ -19,17 +19,30 @@ jobs:
       matrix:
         include:
           - language: java-kotlin
-            build-mode: none
+            build-mode: manual
           - language: cpp
             build-mode: manual
 
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-java@v5
+        if: matrix.language == 'java-kotlin'
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - uses: github/codeql-action/init@v4.37.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+
+      # build-mode: none doesn't work for Kotlin (only Java), CodeQL just
+      # skips every .kt file. The actual build has to run between init and
+      # analyze so CodeQL's build tracer can watch it.
+      - name: Build for CodeQL
+        if: matrix.language == 'java-kotlin'
+        run: ./gradlew :core:compileKotlin :desktop:compileKotlin --stacktrace
 
       # native/ isn't wired into CI's default build yet (see docs/BUILDING.md),
       # so the cpp scan needs its own manual build step. Skips cleanly if

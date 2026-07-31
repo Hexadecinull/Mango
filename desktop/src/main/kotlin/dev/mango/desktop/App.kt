@@ -72,9 +72,10 @@ fun App() {
     }
 }
 
-private fun describeAbiInfo(info: ApkAbiInfo): String = when {
-    info.abisPresent.contains(Abi.ARM64_V8A) -> "Already has an arm64-v8a slice."
-    info.abisPresent.contains(Abi.ARMEABI_V7A) -> "32-bit-only, needs the Mango module on-device."
-    !info.hasAnyNativeLibs -> "No native libraries, architecture doesn't apply."
-    else -> "Doesn't ship an ABI Mango currently handles."
-}
+private fun describeAbiInfo(info: ApkAbiInfo): String =
+    when {
+        info.abisPresent.contains(Abi.ARM64_V8A) -> "Already has an arm64-v8a slice."
+        info.abisPresent.contains(Abi.ARMEABI_V7A) -> "32-bit-only, needs the Mango module on-device."
+        !info.hasAnyNativeLibs -> "No native libraries, architecture doesn't apply."
+        else -> "Doesn't ship an ABI Mango currently handles."
+    }

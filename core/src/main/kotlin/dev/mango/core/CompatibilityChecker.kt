@@ -20,7 +20,10 @@ data class CompatibilityReport(
  * rather than per-APK patching.
  */
 object CompatibilityChecker {
-    fun check(apk: ApkAbiInfo, device: DeviceProfile): CompatibilityReport {
+    fun check(
+        apk: ApkAbiInfo,
+        device: DeviceProfile,
+    ): CompatibilityReport {
         if (!apk.hasAnyNativeLibs) {
             return CompatibilityReport(
                 Verdict.RUNS_NATIVELY,
@@ -35,8 +38,9 @@ object CompatibilityChecker {
             )
         }
 
-        val is32BitOnly = apk.abisPresent.isNotEmpty() &&
-            apk.abisPresent.all { it == Abi.ARMEABI_V7A || it == Abi.X86 }
+        val is32BitOnly =
+            apk.abisPresent.isNotEmpty() &&
+                apk.abisPresent.all { it == Abi.ARMEABI_V7A || it == Abi.X86 }
 
         if (!is32BitOnly) {
             return CompatibilityReport(
