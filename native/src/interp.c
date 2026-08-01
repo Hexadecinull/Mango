@@ -28,6 +28,12 @@ static int mango_check_word_access(const MangoMemory* mem, uint32_t addr) {
   return 0;
 }
 
+/* 0 on success, -1 if addr isn't a valid byte access. No alignment
+ * requirement, every address is a valid byte offset. */
+static int mango_check_byte_access(const MangoMemory* mem, uint32_t addr) {
+  return addr < mem->size ? 0 : -1;
+}
+
 /* Real hardware: reading r15 (PC) as an operand gives the current
  * instruction's address + 8, not whatever cpu->r[15] currently holds
  * (that's only updated to +4 after each instruction executes, see the
@@ -98,13 +104,25 @@ int mango_interp_run(MangoCpu* cpu, MangoMemory* mem, uint32_t max_steps) {
         }
         uint32_t base = mango_read_reg(cpu, addr, insn.rn);
         uint32_t eaddr = insn.u ? base + insn.imm : base - insn.imm;
-        if (mango_check_word_access(mem, eaddr) != 0) {
-          return -1;
-        }
-        if (insn.op == MANGO_OP_LDR) {
-          cpu->r[insn.rd] = mango_load_u32_le(mem->bytes + eaddr);
+
+        if (insn.b) {
+          if (mango_check_byte_access(mem, eaddr) != 0) {
+            return -1;
+          }
+          if (insn.op == MANGO_OP_LDR) {
+            cpu->r[insn.rd] = mem->bytes[eaddr]; /* zero-extended, no LDRSB */
+          } else {
+            mem->bytes[eaddr] = (uint8_t)(cpu->r[insn.rd] & 0xFFu);
+          }
         } else {
-          mango_store_u32_le(mem->bytes + eaddr, cpu->r[insn.rd]);
+          if (mango_check_word_access(mem, eaddr) != 0) {
+            return -1;
+          }
+          if (insn.op == MANGO_OP_LDR) {
+            cpu->r[insn.rd] = mango_load_u32_le(mem->bytes + eaddr);
+          } else {
+            mango_store_u32_le(mem->bytes + eaddr, cpu->r[insn.rd]);
+          }
         }
         break;
       }

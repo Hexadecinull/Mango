@@ -37,6 +37,7 @@ typedef struct MangoInsn {
   int is_imm;     /* 1 if operand2 is the immediate form */
   int sets_flags; /* the S bit */
   int u;          /* LDR/STR only: 1 = add imm to base, 0 = subtract */
+  int b;          /* LDR/STR only: 1 = byte access (LDRB/STRB), 0 = word */
 } MangoInsn;
 
 /*
@@ -45,7 +46,8 @@ typedef struct MangoInsn {
  *
  * LDR/STR support is deliberately narrow: immediate offset only (no
  * register-offset addressing), pre-indexed "offset" addressing with no
- * writeback (P=1, W=0), word access only (B=0, no LDRB/STRB). Real
+ * writeback (P=1, W=0). Word and byte access (LDR/STR and LDRB/STRB) are
+ * both handled; LDRB/STRB zero-extend, there's no signed byte load. Real
  * compiler output uses plenty of addressing modes outside this, that's
  * the next gap to fill, see docs/CONTRIBUTING.md.
  */

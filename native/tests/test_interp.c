@@ -247,6 +247,53 @@ static int test_load_misaligned_rejected(void) {
   return 0;
 }
 
+static int test_load_store_byte_roundtrip(void) {
+  /* mov r0, #171 ; mov r1, #64 ; strb r0, [r1] ; mov r0, #0 ;
+   * ldrb r0, [r1] ; bx lr
+   * 171 (0xAB) has the high bit of the byte set: if LDRB ever
+   * accidentally sign-extended instead of zero-extending, this would
+   * come back as 0xFFFFFFAB instead of 0xAB and the test would catch
+   * it. */
+  static const uint32_t kProgram[] = {
+      0xE3A000ABu, /* mov r0, #171 */
+      0xE3A01040u, /* mov r1, #64 */
+      0xE5C10000u, /* strb r0, [r1] */
+      0xE3A00000u, /* mov r0, #0 */
+      0xE5D10000u, /* ldrb r0, [r1] */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[128];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 6);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x9999u;
+
+  int rc = mango_interp_run(&cpu, &mem, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(load_store_byte_roundtrip): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  if (cpu.r[0] != 171) {
+    fprintf(stderr, "FAIL(load_store_byte_roundtrip): expected r0 == 171, got %u (0x%08x)\n",
+            cpu.r[0], cpu.r[0]);
+    return 1;
+  }
+  /* Byte-check the neighboring bytes were left alone (STRB must not
+   * touch more than one byte). */
+  if (mem_buf[65] != 0 || mem_buf[66] != 0 || mem_buf[67] != 0) {
+    fprintf(stderr, "FAIL(load_store_byte_roundtrip): strb touched neighboring bytes\n");
+    return 1;
+  }
+  printf("ok: strb + ldrb round trip, zero-extended (r0 = %u)\n", cpu.r[0]);
+  return 0;
+}
+
 int main(void) {
   int failures = 0;
   failures += test_mov_add_bx();
@@ -255,6 +302,7 @@ int main(void) {
   failures += test_pc_relative_add();
   failures += test_load_out_of_bounds_rejected();
   failures += test_load_misaligned_rejected();
+  failures += test_load_store_byte_roundtrip();
 
   if (failures != 0) {
     fprintf(stderr, "%d test(s) failed\n", failures);
