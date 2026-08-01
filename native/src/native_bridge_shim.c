@@ -69,26 +69,21 @@ static void* mango_get_trampoline(void* handle, const char* name, const char* sh
   return NULL; /* nothing loads successfully yet, so this never gets called */
 }
 
-static bool mango_is_supported(const char* libpath) {
-  return mango_is_arm32_elf(libpath);
-}
+static bool mango_is_supported(const char* libpath) { return mango_is_arm32_elf(libpath); }
 
 static const struct NativeBridgeRuntimeValues* mango_get_app_env(const char* instruction_set) {
   (void)instruction_set;
   return NULL;
 }
 
-static bool mango_is_compatible_with(uint32_t bridge_version) {
-  return bridge_version <= 2;
-}
+static bool mango_is_compatible_with(uint32_t bridge_version) { return bridge_version <= 2; }
 
 static NativeBridgeSignalHandlerFn mango_get_signal_handler(int signal) {
   (void)signal;
   return NULL;
 }
 
-__attribute__((visibility("default")))
-struct NativeBridgeCallbacks NativeBridgeItf = {
+__attribute__((visibility("default"))) struct NativeBridgeCallbacks NativeBridgeItf = {
     .version = 2,
     .initialize = mango_initialize,
     .loadLibrary = mango_load_library,

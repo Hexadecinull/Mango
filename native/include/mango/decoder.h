@@ -27,13 +27,13 @@ typedef enum MangoOp {
 
 typedef struct MangoInsn {
   MangoOp op;
-  uint32_t cond;   /* bits 31-28, only 0xE (AL) is handled right now */
+  uint32_t cond; /* bits 31-28, only 0xE (AL) is handled right now */
   uint32_t rd;
   uint32_t rn;
-  uint32_t rm;      /* register form of operand2 */
-  uint32_t imm;      /* immediate form of operand2, or branch offset */
-  int is_imm;        /* 1 if operand2 is the immediate form */
-  int sets_flags;     /* the S bit */
+  uint32_t rm;    /* register form of operand2 */
+  uint32_t imm;   /* immediate form of operand2, or branch offset */
+  int is_imm;     /* 1 if operand2 is the immediate form */
+  int sets_flags; /* the S bit */
 } MangoInsn;
 
 /* Decodes one 32-bit A32 word. Returns 0 and fills *out on success,

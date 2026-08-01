@@ -83,12 +83,10 @@ struct NativeBridgeCallbacks {
   const char* (*getError)(void);
   bool (*isPathSupported)(const char* library_path);
   bool (*initAnonymousNamespace)(const char* public_ns_sonames, const char* anon_ns_library_path);
-  struct native_bridge_namespace_t* (*createNamespace)(const char* name,
-                                                        const char* ld_library_path,
-                                                        const char* default_library_path,
-                                                        uint64_t type,
-                                                        const char* permitted_when_isolated_path,
-                                                        struct native_bridge_namespace_t* parent_ns);
+  struct native_bridge_namespace_t* (*createNamespace)(
+      const char* name, const char* ld_library_path, const char* default_library_path,
+      uint64_t type, const char* permitted_when_isolated_path,
+      struct native_bridge_namespace_t* parent_ns);
   bool (*linkNamespaces)(struct native_bridge_namespace_t* from,
                          struct native_bridge_namespace_t* to, const char* shared_libs_sonames);
   void* (*loadLibraryExt)(const char* libpath, int flag, struct native_bridge_namespace_t* ns);
@@ -106,4 +104,4 @@ struct NativeBridgeRuntimeCallbacks {
 }
 #endif
 
-#endif  /* MANGO_NATIVE_BRIDGE_H_ */
+#endif /* MANGO_NATIVE_BRIDGE_H_ */

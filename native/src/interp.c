@@ -2,8 +2,7 @@
 
 #include "mango/decoder.h"
 
-int mango_interp_run(MangoCpu* cpu, const uint32_t* code, uint32_t code_words,
-                     uint32_t max_steps) {
+int mango_interp_run(MangoCpu* cpu, const uint32_t* code, uint32_t code_words, uint32_t max_steps) {
   uint32_t addr = cpu->r[MANGO_REG_PC];
 
   for (uint32_t step = 0; step < max_steps; step++) {
