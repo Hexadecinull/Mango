@@ -1,4 +1,5 @@
 #include <stdio.h>
+
 #include "mango/cpu.h"
 #include "mango/interp.h"
 

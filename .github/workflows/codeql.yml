@@ -21,6 +21,12 @@ jobs:
           - language: java-kotlin
             build-mode: manual
           - language: cpp
+            # manual (not none) is deliberate: a real build gives CodeQL's
+            # C/C++ extractor macro expansion and include resolution it
+            # can't get otherwise, which matters more here than the faster
+            # "overlay-base" incremental database manual mode gives up.
+            # You may see a log line about falling back to a full database
+            # because of that, that's expected, not an error.
             build-mode: manual
 
     steps:

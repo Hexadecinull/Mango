@@ -1,8 +1,9 @@
 #include "mango/interp.h"
+
 #include "mango/decoder.h"
 
 int mango_interp_run(MangoCpu* cpu, const uint32_t* code, uint32_t code_words,
-                      uint32_t max_steps) {
+                     uint32_t max_steps) {
   uint32_t addr = cpu->r[MANGO_REG_PC];
 
   for (uint32_t step = 0; step < max_steps; step++) {
@@ -23,13 +24,11 @@ int mango_interp_run(MangoCpu* cpu, const uint32_t* code, uint32_t code_words,
         break;
 
       case MANGO_OP_ADD:
-        cpu->r[insn.rd] =
-            cpu->r[insn.rn] + (insn.is_imm ? insn.imm : cpu->r[insn.rm]);
+        cpu->r[insn.rd] = cpu->r[insn.rn] + (insn.is_imm ? insn.imm : cpu->r[insn.rm]);
         break;
 
       case MANGO_OP_SUB:
-        cpu->r[insn.rd] =
-            cpu->r[insn.rn] - (insn.is_imm ? insn.imm : cpu->r[insn.rm]);
+        cpu->r[insn.rd] = cpu->r[insn.rn] - (insn.is_imm ? insn.imm : cpu->r[insn.rm]);
         break;
 
       case MANGO_OP_CMP: {

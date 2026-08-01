@@ -58,7 +58,7 @@ struct NativeBridgeCallbacks {
 
   /* Called once by the runtime before first use. */
   bool (*initialize)(const struct NativeBridgeRuntimeCallbacks* runtime_cbs,
-                      const char* private_dir, const char* instruction_set);
+                     const char* private_dir, const char* instruction_set);
 
   /* Load a guest (armeabi-v7a) .so and hand back an opaque handle. */
   void* (*loadLibrary)(const char* libpath, int flag);
@@ -66,15 +66,13 @@ struct NativeBridgeCallbacks {
   /* Return a trampoline the runtime can call as if it were the real
    * native method, matching a JNI shorty signature. This is where a
    * call into guest code enters the translator. */
-  void* (*getTrampoline)(void* handle, const char* name, const char* shorty,
-                          uint32_t len);
+  void* (*getTrampoline)(void* handle, const char* name, const char* shorty, uint32_t len);
 
   /* Whether libpath is a library this bridge can handle. */
   bool (*isSupported)(const char* libpath);
 
   /* Optional environment values to apply after fork, per ISA. */
-  const struct NativeBridgeRuntimeValues* (*getAppEnv)(
-      const char* instruction_set);
+  const struct NativeBridgeRuntimeValues* (*getAppEnv)(const char* instruction_set);
 
   /* v2 */
   bool (*isCompatibleWith)(uint32_t bridge_version);
@@ -84,27 +82,24 @@ struct NativeBridgeCallbacks {
   int (*unloadLibrary)(void* handle);
   const char* (*getError)(void);
   bool (*isPathSupported)(const char* library_path);
-  bool (*initAnonymousNamespace)(const char* public_ns_sonames,
-                                  const char* anon_ns_library_path);
-  struct native_bridge_namespace_t* (*createNamespace)(
-      const char* name, const char* ld_library_path,
-      const char* default_library_path, uint64_t type,
-      const char* permitted_when_isolated_path,
-      struct native_bridge_namespace_t* parent_ns);
+  bool (*initAnonymousNamespace)(const char* public_ns_sonames, const char* anon_ns_library_path);
+  struct native_bridge_namespace_t* (*createNamespace)(const char* name,
+                                                        const char* ld_library_path,
+                                                        const char* default_library_path,
+                                                        uint64_t type,
+                                                        const char* permitted_when_isolated_path,
+                                                        struct native_bridge_namespace_t* parent_ns);
   bool (*linkNamespaces)(struct native_bridge_namespace_t* from,
-                          struct native_bridge_namespace_t* to,
-                          const char* shared_libs_sonames);
-  void* (*loadLibraryExt)(const char* libpath, int flag,
-                           struct native_bridge_namespace_t* ns);
+                         struct native_bridge_namespace_t* to, const char* shared_libs_sonames);
+  void* (*loadLibraryExt)(const char* libpath, int flag, struct native_bridge_namespace_t* ns);
   struct native_bridge_namespace_t* (*getVendorNamespace)(void);
 };
 
 struct NativeBridgeRuntimeCallbacks {
   const char* (*getMethodShorty)(JNIEnv* env, jmethodID mid);
   uint32_t (*getNativeMethodCount)(JNIEnv* env, jclass clazz);
-  uint32_t (*getNativeMethods)(JNIEnv* env, jclass clazz,
-                                JNINativeMethod* methods,
-                                uint32_t method_count);
+  uint32_t (*getNativeMethods)(JNIEnv* env, jclass clazz, JNINativeMethod* methods,
+                               uint32_t method_count);
 };
 
 #ifdef __cplusplus

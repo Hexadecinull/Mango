@@ -41,7 +41,7 @@ static bool mango_is_arm32_elf(const char* libpath) {
 }
 
 static bool mango_initialize(const struct NativeBridgeRuntimeCallbacks* runtime_cbs,
-                              const char* private_dir, const char* instruction_set) {
+                             const char* private_dir, const char* instruction_set) {
   (void)runtime_cbs;
   (void)private_dir;
   (void)instruction_set;
@@ -61,7 +61,7 @@ static void* mango_load_library(const char* libpath, int flag) {
 }
 
 static void* mango_get_trampoline(void* handle, const char* name, const char* shorty,
-                                   uint32_t len) {
+                                  uint32_t len) {
   (void)handle;
   (void)name;
   (void)shorty;
@@ -73,8 +73,7 @@ static bool mango_is_supported(const char* libpath) {
   return mango_is_arm32_elf(libpath);
 }
 
-static const struct NativeBridgeRuntimeValues* mango_get_app_env(
-    const char* instruction_set) {
+static const struct NativeBridgeRuntimeValues* mango_get_app_env(const char* instruction_set) {
   (void)instruction_set;
   return NULL;
 }

@@ -16,6 +16,22 @@ jobs:
           java-version: "21"
       - run: ./gradlew :core:build :core:test --stacktrace
 
+      - name: Upload core jar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-jar
+          path: core/build/libs/*.jar
+          if-no-files-found: warn
+
+      - name: Upload core test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-report
+          path: core/build/reports/tests/
+          if-no-files-found: ignore
+
   desktop-app:
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +40,20 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - run: ./gradlew :desktop:build --stacktrace
+      - run: ./gradlew :desktop:build :desktop:createDistributable --stacktrace
+
+      - name: Upload desktop app image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # createDistributable produces a runnable app image, not an
+          # installer, and needs no OS packaging tools (jpackage/WiX/dpkg),
+          # which keeps this reliable on a plain ubuntu-latest runner. It's
+          # also Linux-only since this job only runs on ubuntu-latest; a
+          # Mac/Windows matrix would be needed for Dmg/Msi installers.
+          name: desktop-app-linux
+          path: desktop/build/compose/binaries/main/app/
+          if-no-files-found: warn
 
   native:
     # native/ is a standalone CMake project, not wired into the Gradle
@@ -49,3 +78,11 @@ jobs:
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-24
           cmake --build native/build
+
+      - name: Upload translator .so
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: libmango_translator-arm64-v8a
+          path: native/build/libmango_translator.so
+          if-no-files-found: warn

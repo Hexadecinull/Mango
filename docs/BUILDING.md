@@ -135,3 +135,9 @@ for how to build and run it, since it isn't part of the Gradle build.
 native/module packaging yet, since that needs a real NDK install in CI;
 see the workflow file for what's actually wired up today versus what's
 still a TODO).
+
+Every run also uploads its build output as a workflow artifact, so you
+don't need to build locally just to try something out: the `core` jar,
+its test report, a runnable (unpackaged) Linux build of the desktop app,
+and, if the native job succeeded, `libmango_translator.so`. Find them on
+the specific workflow run's summary page, under "Artifacts".
