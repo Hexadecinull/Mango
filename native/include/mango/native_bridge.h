@@ -83,10 +83,21 @@ struct NativeBridgeCallbacks {
   const char* (*getError)(void);
   bool (*isPathSupported)(const char* library_path);
   bool (*initAnonymousNamespace)(const char* public_ns_sonames, const char* anon_ns_library_path);
+  /* clang-format off */
+  /* This one's had three different hand-guessed wrappings in a row, each
+   * "fixed" by CI finding the next mismatch, a good sign this specific
+   * shape is hitting clang-format's line-breaking optimizer in a way
+   * that's genuinely not worth hand-replicating. Formatting below is
+   * readable and correct, just not guaranteed byte-identical to what
+   * clang-format itself would produce. */
   struct native_bridge_namespace_t* (*createNamespace)(
-      const char* name, const char* ld_library_path, const char* default_library_path,
-      uint64_t type, const char* permitted_when_isolated_path,
+      const char* name,
+      const char* ld_library_path,
+      const char* default_library_path,
+      uint64_t type,
+      const char* permitted_when_isolated_path,
       struct native_bridge_namespace_t* parent_ns);
+  /* clang-format on */
   bool (*linkNamespaces)(struct native_bridge_namespace_t* from,
                          struct native_bridge_namespace_t* to, const char* shared_libs_sonames);
   void* (*loadLibraryExt)(const char* libpath, int flag, struct native_bridge_namespace_t* ns);
