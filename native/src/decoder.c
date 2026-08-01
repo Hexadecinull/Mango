@@ -5,6 +5,7 @@ int mango_decode(uint32_t word, MangoInsn* out) {
   out->rd = out->rn = out->rm = out->imm = 0;
   out->is_imm = 0;
   out->sets_flags = 0;
+  out->u = 0;
   out->op = MANGO_OP_UNKNOWN;
 
   if (out->cond != 0xE) {
@@ -82,6 +83,28 @@ int mango_decode(uint32_t word, MangoInsn* out) {
       }
       out->rm = operand2 & 0xF;
     }
+    return 0;
+  }
+
+  /* LDR/STR immediate, offset addressing: bits 27-26 == 01, I(25)=0
+   * (immediate, not register offset), P(24)=1 (pre-indexed), W(21)=0
+   * (no writeback), B(22)=0 (word access, not byte). Anything outside
+   * this narrow shape (register-offset, post-indexed, writeback, byte
+   * access) isn't decoded yet, see decoder.h. */
+  if (((word >> 26) & 0x3) == 0x1 && ((word >> 25) & 0x1) == 0 &&
+      ((word >> 24) & 0x1) == 1 && ((word >> 22) & 0x1) == 0 &&
+      ((word >> 21) & 0x1) == 0) {
+    uint32_t u = (word >> 23) & 0x1;
+    uint32_t l = (word >> 20) & 0x1;
+    uint32_t rn = (word >> 16) & 0xF;
+    uint32_t rt = (word >> 12) & 0xF;
+    uint32_t imm12 = word & 0xFFF;
+
+    out->op = l ? MANGO_OP_LDR : MANGO_OP_STR;
+    out->rn = rn;
+    out->rd = rt;
+    out->imm = imm12;
+    out->u = (int)u;
     return 0;
   }
 

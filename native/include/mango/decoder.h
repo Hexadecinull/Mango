@@ -23,6 +23,8 @@ typedef enum MangoOp {
   MANGO_OP_CMP,
   MANGO_OP_B,
   MANGO_OP_BX,
+  MANGO_OP_LDR,
+  MANGO_OP_STR,
 } MangoOp;
 
 typedef struct MangoInsn {
@@ -31,13 +33,22 @@ typedef struct MangoInsn {
   uint32_t rd;
   uint32_t rn;
   uint32_t rm;    /* register form of operand2 */
-  uint32_t imm;   /* immediate form of operand2, or branch offset */
+  uint32_t imm;   /* immediate form of operand2, branch offset, or LDR/STR offset */
   int is_imm;     /* 1 if operand2 is the immediate form */
   int sets_flags; /* the S bit */
+  int u;          /* LDR/STR only: 1 = add imm to base, 0 = subtract */
 } MangoInsn;
 
-/* Decodes one 32-bit A32 word. Returns 0 and fills *out on success,
- * -1 for anything not in the small subset above. */
+/*
+ * Decodes one 32-bit A32 word. Returns 0 and fills *out on success,
+ * -1 for anything not in the small subset above.
+ *
+ * LDR/STR support is deliberately narrow: immediate offset only (no
+ * register-offset addressing), pre-indexed "offset" addressing with no
+ * writeback (P=1, W=0), word access only (B=0, no LDRB/STRB). Real
+ * compiler output uses plenty of addressing modes outside this, that's
+ * the next gap to fill, see docs/CONTRIBUTING.md.
+ */
 int mango_decode(uint32_t word, MangoInsn* out);
 
 #endif /* MANGO_DECODER_H_ */

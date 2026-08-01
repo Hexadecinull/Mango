@@ -13,10 +13,21 @@ encoded synthetic programs, not real app code yet.
 - `include/mango/cpu.h`, `include/mango/decoder.h`, `include/mango/interp.h`,
   `src/decoder.c`, `src/interp.c`: the portable core. Handles `MOV`, `ADD`,
   `SUB`, `CMP` (register or immediate operand2, no shifts yet), unconditional
-  `B`, and `BX`. Only the `AL` (always) condition is handled; conditional
-  execution is unimplemented. This is genuinely a small subset, real apps
-  will use far more of the ISA (Thumb-2, conditional execution, load/store,
-  NEON, and so on all still need doing).
+  `B`, `BX`, and now `LDR`/`STR` (immediate offset only: no register-offset
+  addressing, no post-indexing or writeback, word access only, no
+  `LDRB`/`STRB`). Only the `AL` (always) condition is handled; conditional
+  execution is unimplemented. Register reads correctly treat r15 (PC) as
+  "current instruction address + 8" per real hardware semantics, which
+  matters for the very common `LDR Rd, [PC, #imm]` literal-pool pattern.
+  This is genuinely a small subset, real apps will use far more of the ISA
+  (Thumb-2, conditional execution, shifted operands, `LDRB`/`STRB`, NEON,
+  and so on all still need doing).
+- The interpreter now has an actual memory model (`MangoMemory`): a flat,
+  byte-addressable buffer that code and data share, same as real memory.
+  Every fetch and every `LDR`/`STR` is bounds- and alignment-checked; out
+  of range fails the run rather than reading or writing past the buffer,
+  and there are tests specifically proving that (not just asserting it in
+  a comment), see `docs/SECURITY.md` for why that's the priority here.
 - `include/mango/native_bridge.h`: the AOSP native bridge interface Mango
   implements, adapted from the real header (see file for the source and
   license). `loadLibrary` and `getTrampoline`, the two functions that would
@@ -28,10 +39,13 @@ encoded synthetic programs, not real app code yet.
   `NativeBridgeItf`. `isSupported()` really does check the ELF header
   (class + machine), the rest of the interface returns "not implemented"
   values.
-- `tests/test_interp.c`: two test programs, hand-encoded by working out the
-  A32 bit patterns by hand and checking them against the ARMv7-A encoding.
-  Both pass under `-Wall -Wextra -Werror -fsanitize=address,undefined`. One
-  of them (the BX check) caught a real bit-mask width bug during
+- `tests/test_interp.c`: six test programs, hand-encoded by working out the
+  A32 bit patterns by hand and cross-checked against an independently
+  written encoder before trusting them. All pass under
+  `-Wall -Wextra -Werror -fsanitize=address,undefined`, including two
+  negative tests that specifically try an out-of-bounds and a misaligned
+  `LDR` and check they're rejected, not just that the happy path works.
+  Earlier rounds of this (the `BX` mask-width bug) caught real bugs during
   development, which is exactly the kind of mistake this subset of the
   project is prone to; more test cases from more people is how this gets
   more trustworthy, see `docs/CONTRIBUTING.md`.
@@ -59,10 +73,11 @@ and NDK/bionic headers) does need the NDK toolchain; see `docs/BUILDING.md`.
 
 ## Where to look if you want to help
 
-- More A32 instructions (load/store is a big, obviously-needed gap), then
-  Thumb-2, then conditional execution. Each addition should come with a
-  hand-derived test case the way the existing two work, see
-  `docs/CONTRIBUTING.md`'s testing section.
+- More A32 instructions: shifted operand2 (`ADD r0, r1, r2, LSL #2` and
+  friends), `LDRB`/`STRB`, register-offset and post-indexed/writeback
+  addressing for `LDR`/`STR`, then conditional execution, then Thumb-2.
+  Each addition should come with a hand-derived test case the way the
+  existing ones work, see `docs/CONTRIBUTING.md`'s testing section.
 - `loadLibrary`/`getTrampoline` in the shim: this is where "interpret a
   synthetic test program" turns into "actually run a real `.so`'s code",
   and is a substantially bigger jump than anything implemented so far.

@@ -6,12 +6,25 @@
 #include "mango/cpu.h"
 
 /*
- * Interprets starting at cpu->r[PC] until a BX (treated as "return" for
- * this proof of concept) or max_steps is hit. code/code_words describe a
- * flat array of A32 words, addressed as if code[0] were address 0.
- * Returns 0 on a clean BX, -1 on anything else (unknown instruction,
- * out-of-range address, step limit).
+ * A flat, byte-addressable guest address space: code and data share it,
+ * same as real memory. bytes/size describe a buffer the caller owns;
+ * mango_interp_run only reads it (for fetch) and reads/writes it (for
+ * LDR/STR), never resizes or frees it.
  */
-int mango_interp_run(MangoCpu* cpu, const uint32_t* code, uint32_t code_words, uint32_t max_steps);
+typedef struct MangoMemory {
+  uint8_t* bytes;
+  uint32_t size;
+} MangoMemory;
+
+/*
+ * Interprets starting at cpu->r[PC] until a BX (treated as "return" for
+ * this proof of concept) or max_steps is hit. Every fetch and every
+ * LDR/STR is bounds- and alignment-checked against mem; anything out of
+ * range fails the whole run rather than reading/writing out of bounds,
+ * see docs/SECURITY.md on why that matters here specifically.
+ * Returns 0 on a clean BX, -1 on anything else (unknown instruction,
+ * out-of-range or misaligned access, step limit).
+ */
+int mango_interp_run(MangoCpu* cpu, MangoMemory* mem, uint32_t max_steps);
 
 #endif /* MANGO_INTERP_H_ */
