@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 /*
- * Phase-1 proof of concept only: decodes a handful of unconditional-flag,
- * AL-condition A32 instructions, not Thumb-2, not real-world code. See
- * docs/ARCHITECTURE.md, "Realistic roadmap", phase 1.
+ * Phase-1 proof of concept only: decodes a handful of A32 instructions,
+ * not Thumb-2, not real-world code in full. See docs/ARCHITECTURE.md,
+ * "Realistic roadmap", phase 1.
  *
  * Encodings below are per the ARMv7-A architecture reference manual
  * (DDI 0406C), typed from memory. Double check bit positions against the
@@ -29,13 +29,16 @@ typedef enum MangoOp {
 
 typedef struct MangoInsn {
   MangoOp op;
-  uint32_t cond; /* bits 31-28, only 0xE (AL) is handled right now */
+  uint32_t cond; /* bits 31-28; the interpreter checks this against NZCV,
+                  * decode itself accepts any value except the reserved
+                  * 0xF, see mango_decode's doc comment below */
   uint32_t rd;
   uint32_t rn;
   uint32_t rm;    /* register form of operand2 */
   uint32_t imm;   /* immediate form of operand2, branch offset, or LDR/STR offset */
   int is_imm;     /* 1 if operand2 is the immediate form */
-  int sets_flags; /* the S bit */
+  int sets_flags; /* the S bit; only CMP actually sets flags right now,
+                    * ADDS/SUBS are decoded but don't set flags yet */
   int u;          /* LDR/STR only: 1 = add imm to base, 0 = subtract */
   int b;          /* LDR/STR only: 1 = byte access (LDRB/STRB), 0 = word */
 } MangoInsn;
@@ -43,6 +46,11 @@ typedef struct MangoInsn {
 /*
  * Decodes one 32-bit A32 word. Returns 0 and fills *out on success,
  * -1 for anything not in the small subset above.
+ *
+ * Every one of ARM's 14 real condition codes is decoded (not just AL);
+ * whether the instruction actually executes given those flags is checked
+ * by the interpreter, not here, see mango_interp_run. cond=0xF is
+ * rejected outright, see the MangoInsn.cond comment above.
  *
  * LDR/STR support is deliberately narrow: immediate offset only (no
  * register-offset addressing), pre-indexed "offset" addressing with no

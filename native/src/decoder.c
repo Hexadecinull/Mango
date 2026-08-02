@@ -9,8 +9,12 @@ int mango_decode(uint32_t word, MangoInsn* out) {
   out->b = 0;
   out->op = MANGO_OP_UNKNOWN;
 
-  if (out->cond != 0xE) {
-    return -1; /* only AL handled in this proof of concept */
+  if (out->cond == 0xF) {
+    /* ARMv5+ repurposed cond=1111 as a selector into a whole separate
+     * "unconditional instruction extension space" (BLX, PLD, and so on),
+     * not a real condition code. Different instructions entirely, not
+     * decoded here. */
+    return -1;
   }
 
   /* BX Rm: cond 0001 0010 1111 1111 1111 0001 Rm */

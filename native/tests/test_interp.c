@@ -294,6 +294,124 @@ static int test_load_store_byte_roundtrip(void) {
   return 0;
 }
 
+static int test_conditional_branch_taken(void) {
+  /* mov r0, #5 ; cmp r0, #5 ; beq target ; mov r0, #99 (must be skipped) ;
+   * target: mov r1, #1 ; bx lr
+   * r0 == r0, so Z is set and the branch must be taken. */
+  static const uint32_t kProgram[] = {
+      0xE3A00005u, /* mov r0, #5 */
+      0xE3500005u, /* cmp r0, #5 */
+      0x0A000000u, /* beq target (target = this instr's addr + 8) */
+      0xE3A00063u, /* mov r0, #99, must never execute */
+      0xE3A01001u, /* target: mov r1, #1 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 6);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x1111u;
+
+  int rc = mango_interp_run(&cpu, &mem, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(conditional_branch_taken): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  if (cpu.r[0] != 5) {
+    fprintf(stderr,
+            "FAIL(conditional_branch_taken): expected r0 == 5 (beq must have "
+            "skipped mov r0,#99), got %u\n",
+            cpu.r[0]);
+    return 1;
+  }
+  if (cpu.r[1] != 1) {
+    fprintf(stderr,
+            "FAIL(conditional_branch_taken): expected r1 == 1 (target must "
+            "have run), got %u\n",
+            cpu.r[1]);
+    return 1;
+  }
+  printf("ok: beq taken (r0 = %u, r1 = %u)\n", cpu.r[0], cpu.r[1]);
+  return 0;
+}
+
+static int test_signed_vs_unsigned_condition_flags(void) {
+  /* mov r0, #0 ; sub r0, r0, #1 (r0 = 0xFFFFFFFF, i.e. -1 signed) ;
+   * cmp r0, #1 ; movlt r1, #1 (signed: -1 < 1, should execute) ;
+   * movge r2, #1 (signed: NOT -1 >= 1, must not execute) ; bx lr
+   *
+   * The point of this test: 0xFFFFFFFF is simultaneously "less than 1"
+   * as a signed number and "greater than 1" as an unsigned one. Getting
+   * this right depends on C and V being computed correctly in CMP, not
+   * just N and Z, this is exactly the kind of case that would silently
+   * pass with N/Z alone but fail here. */
+  static const uint32_t kProgram[] = {
+      0xE3A00000u, /* mov r0, #0 */
+      0xE2400001u, /* sub r0, r0, #1 */
+      0xE3500001u, /* cmp r0, #1 */
+      0xB3A01001u, /* movlt r1, #1 */
+      0xA3A02001u, /* movge r2, #1 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 6);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x2222u;
+
+  int rc = mango_interp_run(&cpu, &mem, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(signed_vs_unsigned_condition_flags): mango_interp_run returned %d\n",
+            rc);
+    return 1;
+  }
+  if (cpu.r[0] != 0xFFFFFFFFu) {
+    fprintf(stderr, "FAIL(signed_vs_unsigned_condition_flags): expected r0 == -1, got %u\n",
+            cpu.r[0]);
+    return 1;
+  }
+  if (cpu.r[1] != 1) {
+    fprintf(stderr,
+            "FAIL(signed_vs_unsigned_condition_flags): expected r1 == 1 "
+            "(movlt should have executed, -1 < 1), got %u\n",
+            cpu.r[1]);
+    return 1;
+  }
+  if (cpu.r[2] != 0) {
+    fprintf(stderr,
+            "FAIL(signed_vs_unsigned_condition_flags): expected r2 == 0 "
+            "(movge should NOT have executed, -1 is not >= 1), got %u\n",
+            cpu.r[2]);
+    return 1;
+  }
+  if ((cpu.cpsr & MANGO_CPSR_C) == 0) {
+    fprintf(stderr,
+            "FAIL(signed_vs_unsigned_condition_flags): expected C set "
+            "(0xFFFFFFFF >= 1 unsigned)\n");
+    return 1;
+  }
+  if ((cpu.cpsr & MANGO_CPSR_V) != 0) {
+    fprintf(stderr,
+            "FAIL(signed_vs_unsigned_condition_flags): expected V clear "
+            "(-1 - 1 doesn't signed-overflow)\n");
+    return 1;
+  }
+  printf("ok: signed vs unsigned flags (r1 = %u, r2 = %u)\n", cpu.r[1], cpu.r[2]);
+  return 0;
+}
+
 int main(void) {
   int failures = 0;
   failures += test_mov_add_bx();
@@ -303,6 +421,8 @@ int main(void) {
   failures += test_load_out_of_bounds_rejected();
   failures += test_load_misaligned_rejected();
   failures += test_load_store_byte_roundtrip();
+  failures += test_conditional_branch_taken();
+  failures += test_signed_vs_unsigned_condition_flags();
 
   if (failures != 0) {
     fprintf(stderr, "%d test(s) failed\n", failures);

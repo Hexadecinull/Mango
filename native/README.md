@@ -12,17 +12,19 @@ encoded synthetic programs, not real app code yet.
 
 - `include/mango/cpu.h`, `include/mango/decoder.h`, `include/mango/interp.h`,
   `src/decoder.c`, `src/interp.c`: the portable core. Handles `MOV`, `ADD`,
-  `SUB`, `CMP` (register or immediate operand2, no shifts yet), unconditional
-  `B`, `BX`, and `LDR`/`STR`/`LDRB`/`STRB` (immediate offset only: no
-  register-offset addressing, no post-indexing or writeback; `LDRB`
-  zero-extends, there's no signed byte load). Only the `AL` (always)
-  condition is handled; conditional execution is unimplemented. Register
-  reads correctly treat r15 (PC) as "current instruction address + 8" per
-  real hardware semantics, which matters for the very common
-  `LDR Rd, [PC, #imm]` literal-pool pattern. This is genuinely a small
-  subset, real apps will use far more of the ISA (Thumb-2, conditional
-  execution, shifted operands, register-offset addressing, NEON, and so on
-  all still need doing).
+  `SUB`, `CMP` (register or immediate operand2, no shifts yet), `B`, `BX`,
+  and `LDR`/`STR`/`LDRB`/`STRB` (immediate offset only: no register-offset
+  addressing, no post-indexing or writeback; `LDRB` zero-extends, there's
+  no signed byte load). Every one of ARM's 14 real condition codes works,
+  not just `AL`: `BEQ`, `BNE`, `MOVLT`, and so on all execute (or don't)
+  based on the current NZCV flags, the same as real hardware, and `CMP`
+  computes all four flags, not just N and Z. Register reads correctly
+  treat r15 (PC) as "current instruction address + 8" per real hardware
+  semantics, which matters for the very common `LDR Rd, [PC, #imm]`
+  literal-pool pattern. This is genuinely a small subset, real apps will
+  use far more of the ISA (Thumb-2, shifted operands, register-offset
+  addressing, `ADDS`/`SUBS` actually setting flags, NEON, and so on all
+  still need doing).
 - The interpreter has an actual memory model (`MangoMemory`): a flat,
   byte-addressable buffer that code and data share, same as real memory.
   Every fetch and every `LDR`/`STR`/`LDRB`/`STRB` is bounds-checked (word
@@ -42,7 +44,7 @@ encoded synthetic programs, not real app code yet.
   `NativeBridgeItf`. `isSupported()` really does check the ELF header
   (class + machine), the rest of the interface returns "not implemented"
   values.
-- `tests/test_interp.c`: seven test programs, hand-encoded by working out the
+- `tests/test_interp.c`: nine test programs, hand-encoded by working out the
   A32 bit patterns by hand and cross-checked against an independently
   written encoder before trusting them. All pass under
   `-Wall -Wextra -Werror -fsanitize=address,undefined`, including two
@@ -78,7 +80,8 @@ and NDK/bionic headers) does need the NDK toolchain; see `docs/BUILDING.md`.
 
 - More A32 instructions: shifted operand2 (`ADD r0, r1, r2, LSL #2` and
   friends), register-offset and post-indexed/writeback addressing for
-  `LDR`/`STR`/`LDRB`/`STRB`, then conditional execution, then Thumb-2.
+  `LDR`/`STR`/`LDRB`/`STRB`, `ADDS`/`SUBS` actually setting flags (the S
+  bit is decoded but currently only `CMP` sets flags), then Thumb-2.
   Each addition should come with a hand-derived test case the way the
   existing ones work, see `docs/CONTRIBUTING.md`'s testing section.
 - `loadLibrary`/`getTrampoline` in the shim: this is where "interpret a
