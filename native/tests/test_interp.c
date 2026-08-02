@@ -373,8 +373,7 @@ static int test_signed_vs_unsigned_condition_flags(void) {
 
   int rc = mango_interp_run(&cpu, &mem, 100);
   if (rc != 0) {
-    fprintf(stderr, "FAIL(signed_vs_unsigned_condition_flags): mango_interp_run returned %d\n",
-            rc);
+    fprintf(stderr, "FAIL(signed_vs_unsigned_condition_flags): mango_interp_run returned %d\n", rc);
     return 1;
   }
   if (cpu.r[0] != 0xFFFFFFFFu) {

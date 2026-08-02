@@ -37,8 +37,7 @@ typedef struct MangoInsn {
   uint32_t rm;    /* register form of operand2 */
   uint32_t imm;   /* immediate form of operand2, branch offset, or LDR/STR offset */
   int is_imm;     /* 1 if operand2 is the immediate form */
-  int sets_flags; /* the S bit; only CMP actually sets flags right now,
-                    * ADDS/SUBS are decoded but don't set flags yet */
+  int sets_flags; /* the S bit; only CMP sets flags right now */
   int u;          /* LDR/STR only: 1 = add imm to base, 0 = subtract */
   int b;          /* LDR/STR only: 1 = byte access (LDRB/STRB), 0 = word */
 } MangoInsn;
@@ -50,7 +49,10 @@ typedef struct MangoInsn {
  * Every one of ARM's 14 real condition codes is decoded (not just AL);
  * whether the instruction actually executes given those flags is checked
  * by the interpreter, not here, see mango_interp_run. cond=0xF is
- * rejected outright, see the MangoInsn.cond comment above.
+ * rejected outright, see the MangoInsn.cond comment above. The S bit is
+ * captured into sets_flags for every data-processing op, but only CMP's
+ * effect on NZCV is actually implemented; ADDS/SUBS decode fine but
+ * don't set flags yet, that's a real gap, not a design choice.
  *
  * LDR/STR support is deliberately narrow: immediate offset only (no
  * register-offset addressing), pre-indexed "offset" addressing with no

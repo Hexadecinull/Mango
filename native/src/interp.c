@@ -58,22 +58,38 @@ static int mango_cond_holds(uint32_t cond, uint32_t cpsr) {
   int v = (cpsr & MANGO_CPSR_V) != 0;
 
   switch (cond) {
-    case 0x0: return z;               /* EQ: equal */
-    case 0x1: return !z;              /* NE: not equal */
-    case 0x2: return c;               /* CS/HS: unsigned >= */
-    case 0x3: return !c;              /* CC/LO: unsigned < */
-    case 0x4: return n;               /* MI: negative */
-    case 0x5: return !n;              /* PL: positive or zero */
-    case 0x6: return v;               /* VS: signed overflow */
-    case 0x7: return !v;              /* VC: no signed overflow */
-    case 0x8: return c && !z;         /* HI: unsigned > */
-    case 0x9: return !c || z;         /* LS: unsigned <= */
-    case 0xA: return n == v;          /* GE: signed >= */
-    case 0xB: return n != v;          /* LT: signed < */
-    case 0xC: return !z && (n == v);  /* GT: signed > */
-    case 0xD: return z || (n != v);   /* LE: signed <= */
-    case 0xE: return 1;               /* AL: always */
-    default: return 0;
+    case 0x0:
+      return z; /* EQ: equal */
+    case 0x1:
+      return !z; /* NE: not equal */
+    case 0x2:
+      return c; /* CS/HS: unsigned >= */
+    case 0x3:
+      return !c; /* CC/LO: unsigned < */
+    case 0x4:
+      return n; /* MI: negative */
+    case 0x5:
+      return !n; /* PL: positive or zero */
+    case 0x6:
+      return v; /* VS: signed overflow */
+    case 0x7:
+      return !v; /* VC: no signed overflow */
+    case 0x8:
+      return c && !z; /* HI: unsigned > */
+    case 0x9:
+      return !c || z; /* LS: unsigned <= */
+    case 0xA:
+      return n == v; /* GE: signed >= */
+    case 0xB:
+      return n != v; /* LT: signed < */
+    case 0xC:
+      return !z && (n == v); /* GT: signed > */
+    case 0xD:
+      return z || (n != v); /* LE: signed <= */
+    case 0xE:
+      return 1; /* AL: always */
+    default:
+      return 0;
   }
 }
 
