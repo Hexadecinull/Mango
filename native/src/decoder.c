@@ -3,6 +3,8 @@
 int mango_decode(uint32_t word, MangoInsn* out) {
   out->cond = (word >> 28) & 0xF;
   out->rd = out->rn = out->rm = out->imm = 0;
+  out->shift_type = 0;
+  out->shift_amount = 0;
   out->is_imm = 0;
   out->sets_flags = 0;
   out->u = 0;
@@ -83,10 +85,20 @@ int mango_decode(uint32_t word, MangoInsn* out) {
       out->is_imm = 1;
       out->imm = val;
     } else {
-      if (((operand2 >> 4) & 0xFF) != 0) {
-        return -1; /* shifted register operand2 not supported yet */
+      uint32_t shift_by_reg = (operand2 >> 4) & 0x1;
+      if (shift_by_reg) {
+        return -1; /* register-specified shift amount not supported yet */
+      }
+      uint32_t shift_type = (operand2 >> 5) & 0x3;
+      uint32_t shift_amount = (operand2 >> 7) & 0x1F;
+      if (shift_type != 0 && shift_amount == 0) {
+        /* LSR #0 means LSR #32, ASR #0 means ASR #32, ROR #0 means RRX:
+         * different instructions, not "shift by zero", see decoder.h. */
+        return -1;
       }
       out->rm = operand2 & 0xF;
+      out->shift_type = shift_type;
+      out->shift_amount = shift_amount;
     }
     return 0;
   }

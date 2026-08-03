@@ -34,6 +34,25 @@ This convention comes from KernelSU and was adopted by Magisk in v28.1+;
 it hasn't been confirmed identical on every manager yet, see
 `docs/ARCHITECTURE.md` and `docs/SECURITY.md`.
 
+## How it checks an app's ABI
+
+Two different mechanisms, depending on what you picked:
+
+- **Installed apps** (the dropdown): `dumpsys package <pkg>`, scanned for
+  known ABI names on any line mentioning "abi". This is Android's own
+  package manager telling you what it actually decided for that app, not
+  Mango re-deriving it, and needs no extra tools. The exact `dumpsys`
+  output format isn't a stable, documented API and has shifted before
+  across Android versions, which is exactly why this scans for ABI name
+  strings rather than parsing one exact field name.
+- **A raw APK path** (not installed yet): needs to look inside the
+  APK's zip, which needs `unzip`. Checked the full list of utilities
+  AOSP's toybox provides (what stock Android ships), and `unzip` isn't
+  one of them, it's not guaranteed to exist on a given device the way
+  `ls` or `grep` are. The WebUI checks for it first and gives a clear
+  error pointing at the installed-apps path instead of failing partway
+  through with a confusing "command not found."
+
 ## Multi-root-manager support
 
 Magisk, KernelSU, KernelSU-Next, and APatch all install modules from

@@ -21,14 +21,15 @@
     <section class="card">
       <h2>Pick an app</h2>
       <label class="field">
-        Installed apps
+        Installed apps (checked through Android itself, no extra tools needed)
         <select id="app-select">
           <option value="">Loading…</option>
         </select>
       </label>
 
       <label class="field">
-        …or a path to an APK
+        …or a path to an APK file not installed yet (needs unzip on-device,
+        not every device has it, see the log if this fails)
         <input id="path-input" type="text" placeholder="/sdcard/Download/example.apk" />
       </label>
 

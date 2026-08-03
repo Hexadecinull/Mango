@@ -31,7 +31,11 @@ without being able to make it run yet.
    something looks off here, nothing past this point will work, see
    Troubleshooting below.
 4. Pick an app, either from the list of installed apps or by typing a path
-   to an APK file, and tap **Check compatibility**.
+   to an APK file, and tap **Check compatibility**. The installed-apps
+   list is checked through Android's own package manager and always
+   works; a raw APK path needs `unzip` on-device, which isn't part of
+   stock Android and not every device has it, the WebUI will tell you
+   clearly if that's what went wrong.
 5. Mango tells you whether the app already runs natively, needs the bridge
    (and can proceed), or is blocked (and why).
 6. If it can proceed, tap **Install**. This runs `pm install -r` on the
@@ -71,6 +75,10 @@ for it.
   manager doesn't support module WebUIs. Try the standalone
   [KsuWebUI](https://github.com/5ec1cff/KsuWebUIStandalone) app, which
   renders module WebUIs for Magisk, KernelSU, and APatch.
+- **"No unzip on this device" when checking a raw APK path**: expected on
+  some devices, `unzip` isn't part of stock Android, see
+  `module/README.md`'s "How it checks an app's ABI". Use the
+  installed-apps dropdown instead, that path doesn't need it.
 - **App won't install at all**: check `docs/ARCHITECTURE.md`'s note on
   `ro.product.cpu.abilist`; the module needs to have applied correctly and
   the device needs a reboot after flashing it.

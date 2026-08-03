@@ -46,6 +46,68 @@ static uint32_t mango_read_reg(const MangoCpu* cpu, uint32_t insn_addr, uint32_t
   return cpu->r[reg];
 }
 
+/* shift_amount is always 1-31 for LSR/ASR/ROR and 0-31 for LSL, decode
+ * rejects everything else (the LSR/ASR "#0 means #32" and ROR "#0 means
+ * RRX" special cases), so every shift here is well-defined with no risk
+ * of a >=32 shift, which would be undefined behavior in C. ASR is
+ * written out by hand rather than relying on `(int32_t)value >>
+ * shift_amount`, since right-shifting a negative signed value is only
+ * implementation-defined in C, not guaranteed portable. */
+static uint32_t mango_apply_shift(uint32_t value, uint32_t shift_type, uint32_t shift_amount) {
+  switch (shift_type) {
+    case 0: /* LSL */
+      return shift_amount == 0 ? value : value << shift_amount;
+    case 1: /* LSR */
+      return value >> shift_amount;
+    case 2: { /* ASR */
+      uint32_t sign_fill = (value & 0x80000000u) ? (~0u << (32 - shift_amount)) : 0u;
+      return (value >> shift_amount) | sign_fill;
+    }
+    case 3: /* ROR */
+      return (value >> shift_amount) | (value << (32 - shift_amount));
+    default:
+      return value;
+  }
+}
+
+/* operand2's actual value: the immediate as-is, or the shifted register. */
+static uint32_t mango_read_operand2(const MangoCpu* cpu, uint32_t addr, const MangoInsn* insn) {
+  if (insn->is_imm) {
+    return insn->imm;
+  }
+  uint32_t value = mango_read_reg(cpu, addr, insn->rm);
+  return mango_apply_shift(value, insn->shift_type, insn->shift_amount);
+}
+
+/* NZCV for an ADD-style operation (ADD, ADDS): result = lhs + rhs. */
+static uint32_t mango_flags_for_add(uint32_t lhs, uint32_t rhs, uint32_t result) {
+  uint32_t flags = 0;
+  flags |= (result == 0) ? MANGO_CPSR_Z : 0;
+  flags |= (result & 0x80000000u) ? MANGO_CPSR_N : 0;
+  flags |= (result < lhs) ? MANGO_CPSR_C : 0; /* wrapped past UINT32_MAX: carry out */
+  /* Signed overflow: operands had the same sign, and the result's sign
+   * doesn't match. */
+  flags |= ((~(lhs ^ rhs) & (lhs ^ result)) & 0x80000000u) ? MANGO_CPSR_V : 0;
+  return flags;
+}
+
+/* NZCV for a SUB-style operation (SUB, SUBS, CMP): result = lhs - rhs. */
+static uint32_t mango_flags_for_sub(uint32_t lhs, uint32_t rhs, uint32_t result) {
+  uint32_t flags = 0;
+  flags |= (result == 0) ? MANGO_CPSR_Z : 0;
+  flags |= (result & 0x80000000u) ? MANGO_CPSR_N : 0;
+  flags |= (lhs >= rhs) ? MANGO_CPSR_C : 0; /* C = NOT borrow */
+  /* Signed overflow: operands had different signs, and the result's
+   * sign doesn't match the minuend's. */
+  flags |= ((lhs ^ rhs) & (lhs ^ result) & 0x80000000u) ? MANGO_CPSR_V : 0;
+  return flags;
+}
+
+static void mango_set_nzcv(MangoCpu* cpu, uint32_t flags) {
+  cpu->cpsr &= ~(MANGO_CPSR_N | MANGO_CPSR_Z | MANGO_CPSR_C | MANGO_CPSR_V);
+  cpu->cpsr |= flags;
+}
+
 /* Whether a conditionally-executed instruction with this cond code
  * should actually run, given the current NZCV flags. Standard ARM
  * condition table; cond=0xE (AL) and 0xF (rejected at decode) never
@@ -114,35 +176,51 @@ int mango_interp_run(MangoCpu* cpu, MangoMemory* mem, uint32_t max_steps) {
      * including B and BX, rather than needing per-case handling. */
     if (mango_cond_holds(insn.cond, cpu->cpsr)) {
       switch (insn.op) {
-        case MANGO_OP_MOV:
-          cpu->r[insn.rd] = insn.is_imm ? insn.imm : mango_read_reg(cpu, addr, insn.rm);
+        case MANGO_OP_MOV: {
+          uint32_t result = mango_read_operand2(cpu, addr, &insn);
+          cpu->r[insn.rd] = result;
+          if (insn.sets_flags) {
+            /* MOVS should set C from the shifter's carry-out when
+             * operand2 involves a shift (LSL/LSR/ASR/ROR by nonzero),
+             * not touch C at all otherwise. Only the "otherwise" half
+             * is implemented: C is always just preserved here, which
+             * is correct for a plain MOVS/MOVS with LSL #0, and wrong
+             * for e.g. `movs r0, r1, lsl #5`. ADD/SUB/CMP don't have
+             * this gap, their C comes from the arithmetic itself, not
+             * the shifter. */
+            uint32_t n = (result & 0x80000000u) ? MANGO_CPSR_N : 0;
+            uint32_t z = (result == 0) ? MANGO_CPSR_Z : 0;
+            mango_set_nzcv(cpu, (cpu->cpsr & MANGO_CPSR_C) | n | z);
+          }
           break;
+        }
 
         case MANGO_OP_ADD: {
-          uint32_t rhs = insn.is_imm ? insn.imm : mango_read_reg(cpu, addr, insn.rm);
-          cpu->r[insn.rd] = mango_read_reg(cpu, addr, insn.rn) + rhs;
+          uint32_t rhs = mango_read_operand2(cpu, addr, &insn);
+          uint32_t lhs = mango_read_reg(cpu, addr, insn.rn);
+          uint32_t result = lhs + rhs;
+          cpu->r[insn.rd] = result;
+          if (insn.sets_flags) {
+            mango_set_nzcv(cpu, mango_flags_for_add(lhs, rhs, result));
+          }
           break;
         }
 
         case MANGO_OP_SUB: {
-          uint32_t rhs = insn.is_imm ? insn.imm : mango_read_reg(cpu, addr, insn.rm);
-          cpu->r[insn.rd] = mango_read_reg(cpu, addr, insn.rn) - rhs;
+          uint32_t rhs = mango_read_operand2(cpu, addr, &insn);
+          uint32_t lhs = mango_read_reg(cpu, addr, insn.rn);
+          uint32_t result = lhs - rhs;
+          cpu->r[insn.rd] = result;
+          if (insn.sets_flags) {
+            mango_set_nzcv(cpu, mango_flags_for_sub(lhs, rhs, result));
+          }
           break;
         }
 
         case MANGO_OP_CMP: {
-          uint32_t rhs = insn.is_imm ? insn.imm : mango_read_reg(cpu, addr, insn.rm);
+          uint32_t rhs = mango_read_operand2(cpu, addr, &insn);
           uint32_t lhs = mango_read_reg(cpu, addr, insn.rn);
-          uint32_t result = lhs - rhs;
-          /* Signed-subtraction overflow: operands had different signs,
-           * and the result's sign doesn't match the minuend's. */
-          int overflow = ((lhs ^ rhs) & (lhs ^ result) & 0x80000000u) != 0;
-
-          cpu->cpsr &= ~(MANGO_CPSR_N | MANGO_CPSR_Z | MANGO_CPSR_C | MANGO_CPSR_V);
-          cpu->cpsr |= (result == 0) ? MANGO_CPSR_Z : 0;
-          cpu->cpsr |= (result & 0x80000000u) ? MANGO_CPSR_N : 0;
-          cpu->cpsr |= (lhs >= rhs) ? MANGO_CPSR_C : 0; /* C = NOT borrow */
-          cpu->cpsr |= overflow ? MANGO_CPSR_V : 0;
+          mango_set_nzcv(cpu, mango_flags_for_sub(lhs, rhs, lhs - rhs));
           break;
         }
 

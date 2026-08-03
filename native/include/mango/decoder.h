@@ -34,12 +34,14 @@ typedef struct MangoInsn {
                   * 0xF, see mango_decode's doc comment below */
   uint32_t rd;
   uint32_t rn;
-  uint32_t rm;    /* register form of operand2 */
-  uint32_t imm;   /* immediate form of operand2, branch offset, or LDR/STR offset */
-  int is_imm;     /* 1 if operand2 is the immediate form */
-  int sets_flags; /* the S bit; only CMP sets flags right now */
-  int u;          /* LDR/STR only: 1 = add imm to base, 0 = subtract */
-  int b;          /* LDR/STR only: 1 = byte access (LDRB/STRB), 0 = word */
+  uint32_t rm;           /* register form of operand2 */
+  uint32_t imm;          /* immediate form of operand2, branch offset, or LDR/STR offset */
+  uint32_t shift_type;   /* 0=LSL,1=LSR,2=ASR,3=ROR, register operand2 only */
+  uint32_t shift_amount; /* 0-31, register operand2 only */
+  int is_imm;            /* 1 if operand2 is the immediate form */
+  int sets_flags;        /* the S bit; only CMP sets flags right now */
+  int u;                 /* LDR/STR only: 1 = add imm to base, 0 = subtract */
+  int b;                 /* LDR/STR only: 1 = byte access (LDRB/STRB), 0 = word */
 } MangoInsn;
 
 /*
@@ -54,12 +56,21 @@ typedef struct MangoInsn {
  * effect on NZCV is actually implemented; ADDS/SUBS decode fine but
  * don't set flags yet, that's a real gap, not a design choice.
  *
+ * Register-form operand2 supports a shift (LSL/LSR/ASR/ROR) by an
+ * immediate amount, not a register-specified amount (that's rejected).
+ * The special "shift amount encodes as 0 but means something else"
+ * cases are rejected too rather than silently mishandled: LSR #0 in the
+ * encoding means LSR #32, ASR #0 means ASR #32, and ROR #0 means RRX
+ * (rotate through carry), none of those are what "shift by zero" would
+ * suggest, so none of them are supported yet.
+ *
  * LDR/STR support is deliberately narrow: immediate offset only (no
- * register-offset addressing), pre-indexed "offset" addressing with no
- * writeback (P=1, W=0). Word and byte access (LDR/STR and LDRB/STRB) are
- * both handled; LDRB/STRB zero-extend, there's no signed byte load. Real
- * compiler output uses plenty of addressing modes outside this, that's
- * the next gap to fill, see docs/CONTRIBUTING.md.
+ * register-offset addressing, so no shift applies there at all), pre-
+ * indexed "offset" addressing with no writeback (P=1, W=0). Word and
+ * byte access (LDR/STR and LDRB/STRB) are both handled; LDRB/STRB
+ * zero-extend, there's no signed byte load. Real compiler output uses
+ * plenty of addressing modes outside this, that's the next gap to fill,
+ * see docs/CONTRIBUTING.md.
  */
 int mango_decode(uint32_t word, MangoInsn* out);
 
