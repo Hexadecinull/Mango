@@ -3,14 +3,7 @@
 #define _POSIX_C_SOURCE 199309L
 #endif
 
-/*
- * The Android-facing half of the translator: implements the interface in
- * mango/native_bridge.h and exports it as "NativeBridgeItf" for ART to
- * dlsym(). Everything that actually needs to run guest code (loadLibrary,
- * getTrampoline) is not implemented yet, see docs/ARCHITECTURE.md's
- * roadmap. isSupported() is real: it checks the ELF header, since that's
- * simple, well-defined, and doesn't depend on the translator core.
- */
+/* Implements native/include/mango/native_bridge.h, exported as "NativeBridgeItf". */
 #include <elf.h>
 #include <fcntl.h>
 #include <string.h>
@@ -45,9 +38,7 @@ static bool mango_initialize(const struct NativeBridgeRuntimeCallbacks* runtime_
   (void)runtime_cbs;
   (void)private_dir;
   (void)instruction_set;
-  /* TODO: stash runtime_cbs somewhere once getTrampoline needs to call
-   * back into JNINativeMethod lookups. */
-  return true;
+  return true; /* TODO: stash runtime_cbs for getTrampoline's JNI lookups */
 }
 
 static void* mango_load_library(const char* libpath, int flag) {
@@ -55,8 +46,7 @@ static void* mango_load_library(const char* libpath, int flag) {
   if (!mango_is_arm32_elf(libpath)) {
     return NULL;
   }
-  /* TODO: actually map and translate the guest library. Returning NULL
-   * here means "recognized but not runnable yet", not "not our ABI". */
+  /* TODO: actually translate the guest library; NULL here means "recognized, not runnable yet" */
   return NULL;
 }
 

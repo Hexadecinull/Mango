@@ -5,26 +5,16 @@
 
 #include "mango/cpu.h"
 
-/*
- * A flat, byte-addressable guest address space: code and data share it,
- * same as real memory. bytes/size describe a buffer the caller owns;
- * mango_interp_run only reads it (for fetch) and reads/writes it (for
- * LDR/STR), never resizes or frees it.
- */
+/* Flat byte-addressable guest memory; code and data share it. Caller-owned. */
 typedef struct MangoMemory {
   uint8_t* bytes;
   uint32_t size;
 } MangoMemory;
 
-/*
- * Interprets starting at cpu->r[PC] until a BX (treated as "return" for
- * this proof of concept) or max_steps is hit. Every fetch and every
- * LDR/STR is bounds- and alignment-checked against mem; anything out of
- * range fails the whole run rather than reading/writing out of bounds,
- * see docs/SECURITY.md on why that matters here specifically.
- * Returns 0 on a clean BX, -1 on anything else (unknown instruction,
- * out-of-range or misaligned access, step limit).
- */
-int mango_interp_run(MangoCpu* cpu, MangoMemory* mem, uint32_t max_steps);
+/* Runs from cpu->r[PC] until PC == stop_addr or max_steps is hit. BX is a
+ * normal jump, not an exit, so nested calls (BL then callee's BX LR) work;
+ * callers pick a stop_addr outside mem and preload LR with it to detect
+ * top-level return. 0 on reaching stop_addr, -1 otherwise. */
+int mango_interp_run(MangoCpu* cpu, MangoMemory* mem, uint32_t stop_addr, uint32_t max_steps);
 
 #endif /* MANGO_INTERP_H_ */

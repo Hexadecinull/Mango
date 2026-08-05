@@ -3,12 +3,10 @@
 
 #include <stdint.h>
 
-/* Guest (AArch32) register file. R13-R15 are conventionally SP/LR/PC but
- * are modeled as plain GPRs here too, since A32 code can address them
- * directly as Rn/Rd in most data-processing instructions. */
+/* AArch32 register file, r13-r15 addressable as plain GPRs too. */
 typedef struct MangoCpu {
   uint32_t r[16];
-  uint32_t cpsr; /* only N, Z, C, V flags used for now, bits 31-28 */
+  uint32_t cpsr; /* NZCV in bits 31-28 */
 } MangoCpu;
 
 #define MANGO_REG_SP 13

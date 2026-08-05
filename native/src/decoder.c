@@ -12,11 +12,7 @@ int mango_decode(uint32_t word, MangoInsn* out) {
   out->op = MANGO_OP_UNKNOWN;
 
   if (out->cond == 0xF) {
-    /* ARMv5+ repurposed cond=1111 as a selector into a whole separate
-     * "unconditional instruction extension space" (BLX, PLD, and so on),
-     * not a real condition code. Different instructions entirely, not
-     * decoded here. */
-    return -1;
+    return -1; /* 0xF is ARMv5+'s unconditional-extension selector, not a real cond */
   }
 
   /* BX Rm: cond 0001 0010 1111 1111 1111 0001 Rm */
@@ -26,11 +22,9 @@ int mango_decode(uint32_t word, MangoInsn* out) {
     return 0;
   }
 
-  /* B imm24: bits 27-25 = 101, bit 24 (L) = 0 for a plain B, not BL. */
+  /* B/BL imm24: bits 27-25 = 101, bit 24 = L (0=B, 1=BL) */
   if (((word >> 25) & 0x7) == 0x5) {
-    if (((word >> 24) & 0x1) != 0) {
-      return -1; /* BL not handled yet */
-    }
+    uint32_t l = (word >> 24) & 0x1;
     uint32_t imm24 = word & 0xFFFFFF;
     uint32_t offset;
     if (imm24 & 0x800000) {
@@ -38,7 +32,7 @@ int mango_decode(uint32_t word, MangoInsn* out) {
     } else {
       offset = imm24 << 2;
     }
-    out->op = MANGO_OP_B;
+    out->op = l ? MANGO_OP_BL : MANGO_OP_B;
     out->imm = offset; /* two's complement offset, added as unsigned */
     return 0;
   }
@@ -92,9 +86,7 @@ int mango_decode(uint32_t word, MangoInsn* out) {
       uint32_t shift_type = (operand2 >> 5) & 0x3;
       uint32_t shift_amount = (operand2 >> 7) & 0x1F;
       if (shift_type != 0 && shift_amount == 0) {
-        /* LSR #0 means LSR #32, ASR #0 means ASR #32, ROR #0 means RRX:
-         * different instructions, not "shift by zero", see decoder.h. */
-        return -1;
+        return -1; /* #0 means #32 for LSR/ASR, RRX for ROR, see decoder.h */
       }
       out->rm = operand2 & 0xF;
       out->shift_type = shift_type;
@@ -103,11 +95,7 @@ int mango_decode(uint32_t word, MangoInsn* out) {
     return 0;
   }
 
-  /* LDR/STR immediate, offset addressing: bits 27-26 == 01, I(25)=0
-   * (immediate, not register offset), P(24)=1 (pre-indexed), W(21)=0
-   * (no writeback). B(22) selects word (LDR/STR) vs byte (LDRB/STRB).
-   * Anything outside this narrow shape (register-offset, post-indexed,
-   * writeback) isn't decoded yet, see decoder.h. */
+  /* LDR/STR immediate offset, no writeback: bits 27-26=01, I=0, P=1, W=0 */
   if (((word >> 26) & 0x3) == 0x1 && ((word >> 25) & 0x1) == 0 && ((word >> 24) & 0x1) == 1 &&
       ((word >> 21) & 0x1) == 0) {
     uint32_t u = (word >> 23) & 0x1;

@@ -3,17 +3,7 @@
 
 #include <stdint.h>
 
-/*
- * Phase-1 proof of concept only: decodes a handful of A32 instructions,
- * not Thumb-2, not real-world code in full. See docs/ARCHITECTURE.md,
- * "Realistic roadmap", phase 1.
- *
- * Encodings below are per the ARMv7-A architecture reference manual
- * (DDI 0406C), typed from memory. Double check bit positions against the
- * actual manual before trusting this for anything beyond the test in
- * native/tests/, this is exactly the kind of thing worth a second pair
- * of eyes on.
- */
+/* Phase-1 subset of A32, see native/README.md for exact coverage. */
 
 typedef enum MangoOp {
   MANGO_OP_UNKNOWN = 0,
@@ -22,6 +12,7 @@ typedef enum MangoOp {
   MANGO_OP_SUB,
   MANGO_OP_CMP,
   MANGO_OP_B,
+  MANGO_OP_BL,
   MANGO_OP_BX,
   MANGO_OP_LDR,
   MANGO_OP_STR,
@@ -29,49 +20,21 @@ typedef enum MangoOp {
 
 typedef struct MangoInsn {
   MangoOp op;
-  uint32_t cond; /* bits 31-28; the interpreter checks this against NZCV,
-                  * decode itself accepts any value except the reserved
-                  * 0xF, see mango_decode's doc comment below */
+  uint32_t cond; /* checked against NZCV by the interpreter, not here */
   uint32_t rd;
   uint32_t rn;
   uint32_t rm;           /* register form of operand2 */
-  uint32_t imm;          /* immediate form of operand2, branch offset, or LDR/STR offset */
+  uint32_t imm;          /* immediate operand2, branch offset, or LDR/STR offset */
   uint32_t shift_type;   /* 0=LSL,1=LSR,2=ASR,3=ROR, register operand2 only */
   uint32_t shift_amount; /* 0-31, register operand2 only */
   int is_imm;            /* 1 if operand2 is the immediate form */
-  int sets_flags;        /* the S bit; only CMP sets flags right now */
-  int u;                 /* LDR/STR only: 1 = add imm to base, 0 = subtract */
-  int b;                 /* LDR/STR only: 1 = byte access (LDRB/STRB), 0 = word */
+  int sets_flags;        /* the S bit */
+  int u;                 /* LDR/STR: 1 = add imm to base, 0 = subtract */
+  int b;                 /* LDR/STR: 1 = byte access, 0 = word */
 } MangoInsn;
 
-/*
- * Decodes one 32-bit A32 word. Returns 0 and fills *out on success,
- * -1 for anything not in the small subset above.
- *
- * Every one of ARM's 14 real condition codes is decoded (not just AL);
- * whether the instruction actually executes given those flags is checked
- * by the interpreter, not here, see mango_interp_run. cond=0xF is
- * rejected outright, see the MangoInsn.cond comment above. The S bit is
- * captured into sets_flags for every data-processing op, but only CMP's
- * effect on NZCV is actually implemented; ADDS/SUBS decode fine but
- * don't set flags yet, that's a real gap, not a design choice.
- *
- * Register-form operand2 supports a shift (LSL/LSR/ASR/ROR) by an
- * immediate amount, not a register-specified amount (that's rejected).
- * The special "shift amount encodes as 0 but means something else"
- * cases are rejected too rather than silently mishandled: LSR #0 in the
- * encoding means LSR #32, ASR #0 means ASR #32, and ROR #0 means RRX
- * (rotate through carry), none of those are what "shift by zero" would
- * suggest, so none of them are supported yet.
- *
- * LDR/STR support is deliberately narrow: immediate offset only (no
- * register-offset addressing, so no shift applies there at all), pre-
- * indexed "offset" addressing with no writeback (P=1, W=0). Word and
- * byte access (LDR/STR and LDRB/STRB) are both handled; LDRB/STRB
- * zero-extend, there's no signed byte load. Real compiler output uses
- * plenty of addressing modes outside this, that's the next gap to fill,
- * see docs/CONTRIBUTING.md.
- */
+/* 0 and fills *out on success, -1 for anything outside native/README.md's
+ * documented subset. */
 int mango_decode(uint32_t word, MangoInsn* out);
 
 #endif /* MANGO_DECODER_H_ */

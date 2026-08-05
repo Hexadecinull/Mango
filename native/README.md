@@ -13,7 +13,9 @@ encoded synthetic programs, not real app code yet.
 - `include/mango/cpu.h`, `include/mango/decoder.h`, `include/mango/interp.h`,
   `src/decoder.c`, `src/interp.c`: the portable core. Handles `MOV`, `ADD`,
   `SUB`, `CMP` (register operand2 can carry a shift now: LSL/LSR/ASR/ROR
-  by an immediate amount, not by a register-specified amount yet), `B`,
+  by an immediate amount, not by a register-specified amount yet, and the
+  `LSR #0`/`ASR #0`/`ROR #0` encodings are rejected since those actually
+  mean `LSR #32`/`ASR #32`/RRX, not "shift by zero"), `B`, `BL`,
   `BX`, and `LDR`/`STR`/`LDRB`/`STRB` (immediate offset only: no
   register-offset addressing, no post-indexing or writeback; `LDRB`
   zero-extends, there's no signed byte load). Every one of ARM's 14 real
@@ -37,6 +39,14 @@ encoded synthetic programs, not real app code yet.
   or writing past the buffer, and there are tests specifically proving
   that (not just asserting it in a comment), see `docs/SECURITY.md` for
   why that's the priority here.
+- `mango_interp_run` takes a `stop_addr` now, not just `max_steps`: it
+  returns 0 when PC reaches that address, checked before every fetch.
+  `BX` used to unconditionally return 0 on its own, which happened to
+  work for standalone tests but broke the first real nested call: a
+  callee's `BX LR` was ending the whole run instead of returning to the
+  caller. `BL`/`BX` are both just normal jumps now; the caller supplies
+  a `stop_addr` outside `mem` (the same sentinel-in-LR trick the tests
+  already used) to detect the top-level function actually returning.
 - `include/mango/native_bridge.h`: the AOSP native bridge interface Mango
   implements, adapted from the real header (see file for the source and
   license). `loadLibrary` and `getTrampoline`, the two functions that would
@@ -48,7 +58,7 @@ encoded synthetic programs, not real app code yet.
   `NativeBridgeItf`. `isSupported()` really does check the ELF header
   (class + machine), the rest of the interface returns "not implemented"
   values.
-- `tests/test_interp.c`: twelve test programs, hand-encoded by working out the
+- `tests/test_interp.c`: thirteen test programs, hand-encoded by working out the
   A32 bit patterns by hand and cross-checked against an independently
   written encoder before trusting them. All pass under
   `-Wall -Wextra -Werror -fsanitize=address,undefined`, including two
@@ -82,12 +92,14 @@ and NDK/bionic headers) does need the NDK toolchain; see `docs/BUILDING.md`.
 
 ## Where to look if you want to help
 
-- More A32 instructions: register-specified shift amount (`LSL Rs`, not
-  just `LSL #imm`), register-offset and post-indexed/writeback addressing
-  for `LDR`/`STR`/`LDRB`/`STRB`, `MOVS` computing C from the shifter's
-  carry-out instead of just leaving it alone, then Thumb-2. Each addition
-  should come with a hand-derived test case the way the existing ones
-  work, see `docs/CONTRIBUTING.md`'s testing section.
+- More A32 instructions: `PUSH`/`POP`/`STM`/`LDM` (stack save/restore,
+  needed for any real function's prologue/epilogue), `MUL`, register-
+  specified shift amount (`LSL Rs`, not just `LSL #imm`), register-offset
+  and post-indexed/writeback addressing for `LDR`/`STR`/`LDRB`/`STRB`,
+  `MOVS` computing C from the shifter's carry-out instead of just leaving
+  it alone, then Thumb-2. Each addition should come with a hand-derived
+  test case the way the existing ones work, see
+  `docs/CONTRIBUTING.md`'s testing section.
 - `loadLibrary`/`getTrampoline` in the shim: this is where "interpret a
   synthetic test program" turns into "actually run a real `.so`'s code",
   and is a substantially bigger jump than anything implemented so far.

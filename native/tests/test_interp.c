@@ -45,7 +45,7 @@ static int test_mov_add_bx(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0xDEADBEEFu;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0xDEADBEEFu, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(mov_add_bx): mango_interp_run returned %d\n", rc);
     return 1;
@@ -86,7 +86,7 @@ static int test_branch_and_flags(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0xCAFEF00Du;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0xCAFEF00Du, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(branch_and_flags): mango_interp_run returned %d\n", rc);
     return 1;
@@ -132,7 +132,7 @@ static int test_load_store_roundtrip(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x1234u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x1234u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(load_store_roundtrip): mango_interp_run returned %d\n", rc);
     return 1;
@@ -176,7 +176,7 @@ static int test_pc_relative_add(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x5678u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x5678u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(pc_relative_add): mango_interp_run returned %d\n", rc);
     return 1;
@@ -211,7 +211,7 @@ static int test_load_out_of_bounds_rejected(void) {
   }
   cpu.cpsr = 0;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0xFFFFFFFFu, 100);
   if (rc == 0) {
     fprintf(stderr, "FAIL(load_out_of_bounds_rejected): expected a failure, got success\n");
     return 1;
@@ -238,7 +238,7 @@ static int test_load_misaligned_rejected(void) {
   }
   cpu.cpsr = 0;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0xFFFFFFFFu, 100);
   if (rc == 0) {
     fprintf(stderr, "FAIL(load_misaligned_rejected): expected a failure, got success\n");
     return 1;
@@ -274,7 +274,7 @@ static int test_load_store_byte_roundtrip(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x9999u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x9999u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(load_store_byte_roundtrip): mango_interp_run returned %d\n", rc);
     return 1;
@@ -318,7 +318,7 @@ static int test_conditional_branch_taken(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x1111u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x1111u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(conditional_branch_taken): mango_interp_run returned %d\n", rc);
     return 1;
@@ -371,7 +371,7 @@ static int test_signed_vs_unsigned_condition_flags(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x2222u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x2222u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(signed_vs_unsigned_condition_flags): mango_interp_run returned %d\n", rc);
     return 1;
@@ -441,7 +441,7 @@ static int test_shifted_operand2(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x3333u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x3333u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(shifted_operand2): mango_interp_run returned %d\n", rc);
     return 1;
@@ -459,8 +459,8 @@ static int test_shifted_operand2(void) {
   };
   for (size_t i = 0; i < sizeof(checks) / sizeof(checks[0]); i++) {
     if (checks[i].got != checks[i].want) {
-      fprintf(stderr, "FAIL(shifted_operand2): %s: expected 0x%08x, got 0x%08x\n",
-              checks[i].label, checks[i].want, checks[i].got);
+      fprintf(stderr, "FAIL(shifted_operand2): %s: expected 0x%08x, got 0x%08x\n", checks[i].label,
+              checks[i].want, checks[i].got);
       return 1;
     }
   }
@@ -495,7 +495,7 @@ static int test_adds_signed_overflow_without_carry(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x4444u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x4444u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(adds_signed_overflow_without_carry): mango_interp_run returned %d\n", rc);
     return 1;
@@ -539,7 +539,7 @@ static int test_subs_borrow_no_overflow(void) {
   cpu.cpsr = 0;
   cpu.r[MANGO_REG_LR] = 0x5555u;
 
-  int rc = mango_interp_run(&cpu, &mem, 100);
+  int rc = mango_interp_run(&cpu, &mem, 0x5555u, 100);
   if (rc != 0) {
     fprintf(stderr, "FAIL(subs_borrow_no_overflow): mango_interp_run returned %d\n", rc);
     return 1;
@@ -560,6 +560,45 @@ static int test_subs_borrow_no_overflow(void) {
   return 0;
 }
 
+static int test_bl_call_and_return(void) {
+  /* bl sets LR then jumps; the callee's bx lr returns right after the bl. */
+  static const uint32_t kProgram[] = {
+      0xE3A00001u, /* mov r0, #1 */
+      0xEB000001u, /* bl func */
+      0xE3A00002u, /* mov r0, #2 */
+      0xE12FFF15u, /* bx r5 */
+      0xE3A0102Au, /* func: mov r1, #42 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 6);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[5] = 0x6666u;
+
+  int rc = mango_interp_run(&cpu, &mem, 0x6666u, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(bl_call_and_return): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  if (cpu.r[1] != 42) {
+    fprintf(stderr, "FAIL(bl_call_and_return): expected r1 == 42, got %u\n", cpu.r[1]);
+    return 1;
+  }
+  if (cpu.r[0] != 2) {
+    fprintf(stderr, "FAIL(bl_call_and_return): expected r0 == 2, got %u\n", cpu.r[0]);
+    return 1;
+  }
+  printf("ok: bl call and return (r0 = %u, r1 = %u)\n", cpu.r[0], cpu.r[1]);
+  return 0;
+}
+
 int main(void) {
   int failures = 0;
   failures += test_mov_add_bx();
@@ -574,6 +613,7 @@ int main(void) {
   failures += test_shifted_operand2();
   failures += test_adds_signed_overflow_without_carry();
   failures += test_subs_borrow_no_overflow();
+  failures += test_bl_call_and_return();
 
   if (failures != 0) {
     fprintf(stderr, "%d test(s) failed\n", failures);
