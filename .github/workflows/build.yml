@@ -18,7 +18,7 @@ jobs:
 
       - name: Upload core jar
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: core-jar
           path: core/build/libs/*.jar
@@ -26,7 +26,7 @@ jobs:
 
       - name: Upload core test report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: core-test-report
           path: core/build/reports/tests/
@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload desktop app image
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           # createDistributable produces a runnable app image, not an
           # installer, and needs no OS packaging tools (jpackage/WiX/dpkg),
@@ -81,7 +81,7 @@ jobs:
 
       - name: Upload translator .so
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: libmango_translator-arm64-v8a
           path: native/build/libmango_translator.so
