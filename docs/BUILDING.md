@@ -1,11 +1,11 @@
 # Building Mango
 
-Three things get built here: the shared Kotlin engine, the desktop app,
-and the native translator (which gets packaged into the module, alongside
-the WebUI, which needs no build step at all). This doc hasn't been run
-through a real CI pipeline yet as this repo comes together, so if a step
-is wrong for your toolchain version, please open an issue or a PR fixing
-it.
+Four things get built here: the shared Kotlin engine, the desktop app,
+the Android native translator (which gets packaged into the module,
+alongside the WebUI, which needs no build step at all), and the early
+standalone Linux support. This doc hasn't been run through a real CI
+pipeline yet as this repo comes together, so if a step is wrong for your
+toolchain version, please open an issue or a PR fixing it.
 
 ## Prerequisites
 
@@ -55,11 +55,21 @@ window.ksu = {
 };
 ```
 
-This won't catch everything (real device quirks, real `pm`/`unzip` output),
-but it's enough to iterate on the UI without a device in the loop. Real
-testing still needs an actual rooted device; see `docs/USAGE.md`.
+This won't catch everything (real device quirks, real `pm`/`unzip` output,
+and APatch's `exec()` returning a bare string instead of the object shape
+above, see `docs/ARCHITECTURE.md`), but it's enough to iterate on the UI
+without a device in the loop. Real testing still needs an actual rooted
+device; see `docs/USAGE.md`.
+
+`module/webroot/app.test.js` covers the pure-logic pieces (result
+normalization, compatibility checks) without a browser or a device at
+all: `node --test module/webroot/app.test.js`.
 
 ## Building the desktop app (`:desktop`)
+
+Windows/macOS only, a small helper for inspecting an APK from a PC before
+pushing it or the module to a device; not where Linux support lives (see
+below).
 
 ```
 ./gradlew :desktop:run
@@ -101,6 +111,29 @@ There's a helper script for the cmake invocation in
 implemented right now versus stubbed; check `docs/ARCHITECTURE.md` for why
 this is the hard, unfinished part of the project.
 
+## Building standalone Linux support (`linux/`)
+
+Another standalone CMake project, like `native/`, but built with your
+host's own toolchain, no NDK involved:
+
+```
+cmake -S linux -B linux/build
+cmake --build linux/build
+./linux/build/mango_linux_selfcheck
+```
+
+or without CMake at all, same idea as `native/README.md`'s alternative:
+
+```
+cc -std=c11 -Wall -Wextra -Werror -Inative/include \
+  native/src/decoder.c native/src/interp.c linux/src/selfcheck.c \
+  -o /tmp/mango_linux_selfcheck
+```
+
+See `linux/README.md` before expecting much: `mango_linux_selfcheck`
+really runs (it proves the interpreter core builds outside Android/NDK),
+but `mango_linux_loader` is currently a stub, not a working translator.
+
 ## Building the module (including the WebUI)
 
 The module lives in `module/`, WebUI included. It's plain files, not a
@@ -128,16 +161,21 @@ adb push build/mango-module.zip /sdcard/Download/
 
 `native/tests/` has its own small test harness; see `native/README.md`
 for how to build and run it, since it isn't part of the Gradle build.
+`linux/`'s `mango_linux_selfcheck` (above) is a much smaller sibling of
+that same harness, for the standalone build.
 
 ## CI
 
-`.github/workflows/build.yml` runs the Gradle builds above (not the
-native/module packaging yet, since that needs a real NDK install in CI;
-see the workflow file for what's actually wired up today versus what's
-still a TODO).
+`.github/workflows/build.yml` builds `:core`, the (now Windows) desktop
+app, the native Android translator, the packaged module end to end, and
+`linux/`'s standalone build. The native, module, and linux jobs are all
+marked `continue-on-error`, since each is still an early proof of concept
+and none should block an unrelated PR; see the workflow file for exactly
+what's wired up.
 
 Every run also uploads its build output as a workflow artifact, so you
 don't need to build locally just to try something out: the `core` jar,
-its test report, a runnable (unpackaged) Linux build of the desktop app,
-and, if the native job succeeded, `libmango_translator.so`. Find them on
-the specific workflow run's summary page, under "Artifacts".
+its test report, a runnable (unpackaged) Windows build of the desktop
+app, `libmango_translator.so` if the native job succeeded, the flashable
+`mango-module.zip` if the module job succeeded, and the `linux/` binaries.
+Find them on the specific workflow run's summary page, under "Artifacts".

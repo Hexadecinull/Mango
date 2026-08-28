@@ -31,8 +31,11 @@ module, reload the page.
 It talks to root through the `ksu` object your manager's WebView injects
 (`ksu.exec(cmd)` to run shell commands, `ksu.toast(msg)` for feedback).
 This convention comes from KernelSU and was adopted by Magisk in v28.1+;
-it hasn't been confirmed identical on every manager yet, see
-`docs/ARCHITECTURE.md` and `docs/SECURITY.md`.
+whether Magisk's matches exactly hasn't been confirmed, see
+`docs/ARCHITECTURE.md` and `docs/SECURITY.md`. APatch's is confirmed to
+differ in one specific way: its `exec()` resolves to a bare stdout string
+rather than `{errno, stdout, stderr}`, which used to crash the WebUI on
+load, see `app.js`'s `normalizeExecResult()`.
 
 ## How it checks an app's ABI
 

@@ -29,8 +29,10 @@ checks. Contributions aimed at the latter won't be accepted.
 ```
 core/     shared Kotlin patch engine (APK inspection, compatibility
           checks), used by desktop/
-desktop/  desktop app (Compose Desktop)
-native/   the ARM32 -> ARM64 translator (C, CMake, standalone)
+desktop/  Windows/macOS APK-inspection helper app (Compose Desktop)
+native/   the ARM32 -> ARM64 translator for Android (C, CMake, standalone)
+linux/    early standalone ARM32 -> ARM64 support for Linux itself
+          (C, CMake, standalone; reuses native/'s decoder+interpreter)
 module/   the Magisk/KernelSU/KernelSU-Next/APatch module;
           module/webroot/ is the on-device WebUI (plain HTML/CSS/JS,
           no build step, no Gradle)
@@ -80,11 +82,16 @@ a working proof of concept versus what's still a design sketch.
   safety stakes described in `docs/SECURITY.md`, PRs touching the decoder
   or code generator should include a test case reproducing the input
   that motivated the change.
-- `module/webroot/`'s pure logic (`checkCompatibility` in `app.js`) is
-  small enough to sanity-check by hand against `core/`'s Kotlin tests when
-  you change it, since the two are hand-synced, not shared code. It has no
-  automated tests of its own yet; manual, on-device testing is what it
-  needs most, see `docs/BUILDING.md`'s local-preview tip.
+- `module/webroot/` has `app.test.js` (`node --test module/webroot/
+  app.test.js`) covering its pure logic, including `checkCompatibility`,
+  which is still hand-synced against `core/`'s Kotlin version rather than
+  shared code, so check both when you change either. Manual, on-device
+  testing still matters most for anything touching the `ksu` bridge
+  itself, see `docs/BUILDING.md`'s local-preview tip.
+- `linux/` has `mango_linux_selfcheck`, a much smaller sibling of
+  `native/tests/`' harness proving the shared core builds standalone; the
+  same test-case-per-decoder-change bar above applies here too, since it
+  shares `native/`'s decoder and interpreter directly.
 - There's no device lab. If you can test on real hardware (ideally a
   device that's actually 64-bit-only), say what you tested in the PR
   description.

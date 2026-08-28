@@ -33,25 +33,29 @@ jobs:
           if-no-files-found: ignore
 
   desktop-app:
-    runs-on: ubuntu-latest
+    # desktop/ is the Windows/macOS APK-inspection helper now, not where
+    # Linux support lives (see linux/ and docs/ARCHITECTURE.md), so this
+    # builds on windows-latest instead of ubuntu-latest.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
-      - run: ./gradlew :desktop:build :desktop:createDistributable --stacktrace
+      # gradlew.bat, not gradlew: default shell here is pwsh, which can't
+      # run a script starting with a #!/bin/sh shebang line.
+      - run: ./gradlew.bat :desktop:build :desktop:createDistributable --stacktrace
 
       - name: Upload desktop app image
         if: always()
         uses: actions/upload-artifact@v7
         with:
           # createDistributable produces a runnable app image, not an
-          # installer, and needs no OS packaging tools (jpackage/WiX/dpkg),
-          # which keeps this reliable on a plain ubuntu-latest runner. It's
-          # also Linux-only since this job only runs on ubuntu-latest; a
-          # Mac/Windows matrix would be needed for Dmg/Msi installers.
-          name: desktop-app-linux
+          # installer, and needs no OS packaging tools, which keeps this
+          # reliable without relying on WiX being present on the runner.
+          # A real Msi via :desktop:packageMsi is a follow-up, untested here.
+          name: desktop-app-windows
           path: desktop/build/compose/binaries/main/app/
           if-no-files-found: warn
 
@@ -85,4 +89,54 @@ jobs:
         with:
           name: libmango_translator-arm64-v8a
           path: native/build/libmango_translator.so
+          if-no-files-found: warn
+
+  module:
+    # Packages the flashable zip end to end. Depends on native's .so, which
+    # is itself still an early proof of concept (see that job's comment),
+    # so this is allowed to fail for the same reason rather than blocking
+    # unrelated PRs.
+    runs-on: ubuntu-latest
+    needs: native
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download translator .so
+        uses: actions/download-artifact@v7
+        with:
+          name: libmango_translator-arm64-v8a
+          path: native/build/
+      - run: bash scripts/package_module.sh
+
+      - name: Upload compiled module
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mango-module
+          path: build/mango-module.zip
+          if-no-files-found: warn
+
+  linux:
+    # linux/ is a standalone CMake project like native/, but builds with
+    # the host's own toolchain, no NDK needed, see linux/README.md. Still
+    # a proof of concept, so allowed to fail like the native job above.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure and build
+        run: |
+          cmake -S linux -B linux/build
+          cmake --build linux/build
+      - name: Run selfcheck
+        run: ./linux/build/mango_linux_selfcheck
+
+      - name: Upload linux binaries
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mango-linux
+          path: |
+            linux/build/mango_linux_selfcheck
+            linux/build/mango_linux_loader
           if-no-files-found: warn

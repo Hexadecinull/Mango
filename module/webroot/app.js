@@ -1,18 +1,9 @@
 'use strict';
 
 /*
- * Talks to root through the `ksu` global that KernelSU's WebView injects,
- * and that Magisk (v28.1+) and APatch are expected to provide too via the
- * same webroot/ convention (see docs/ARCHITECTURE.md and
- * docs/BUILDING.md's WebUI section). Not independently confirmed on every
- * manager yet, if `ksu.exec` isn't there on your setup, that's the thing
- * to file an issue about.
- *
- * Shell strings below aren't escaped against injection. That's a
- * conscious choice, not an oversight: this whole page only runs inside a
- * WebView that already has root on your own device, so the only person
- * who could inject anything is you, into your own shell, which you
- * already have.
+ * Talks to root via the `ksu` global injected by KernelSU/Magisk 28.1+/
+ * APatch's WebView, see docs/ARCHITECTURE.md. Not shell-escaped on
+ * purpose: this page already runs with root on your own device.
  */
 
 const logLines = [];
@@ -27,25 +18,38 @@ function hasRootBridge() {
   return typeof ksu !== 'undefined' && typeof ksu.exec === 'function';
 }
 
+/*
+ * KernelSU and Magisk 28.1+ resolve ksu.exec() to {errno, stdout, stderr};
+ * APatch's resolves to a bare stdout string (confirmed against its
+ * WebViewInterface source). Normalizing here means every other function
+ * in this file can just trust the shape instead of each guarding it.
+ */
+function normalizeExecResult(raw) {
+  if (typeof raw === 'string') {
+    return { errno: 0, stdout: raw, stderr: '' };
+  }
+  if (raw && typeof raw === 'object') {
+    return { errno: raw.errno || 0, stdout: raw.stdout || '', stderr: raw.stderr || '' };
+  }
+  return { errno: 0, stdout: '', stderr: '' };
+}
+
 async function run(cmd) {
   logLine('$ ' + cmd);
   if (!hasRootBridge()) {
     throw new Error('No root bridge found. Open this page from your root manager app, not a browser.');
   }
-  const result = await ksu.exec(cmd);
-  const stdout = (result && result.stdout) || '';
-  if (stdout.trim()) {
-    logLine(stdout.trim());
+  const result = normalizeExecResult(await ksu.exec(cmd));
+  if (result.stdout.trim()) {
+    logLine(result.stdout.trim());
   }
-  if (result && result.errno && result.errno !== 0) {
+  if (result.errno !== 0) {
     logLine('(exit code ' + result.errno + ')');
   }
   return result;
 }
 
-/* Mirrors core/src/main/kotlin/dev/mango/core/CompatibilityChecker.kt.
- * Kept in sync by hand, JS can't share code with the JVM side, see
- * docs/ARCHITECTURE.md. If you change one, change the other. */
+/* Mirrors CompatibilityChecker.kt by hand, see docs/ARCHITECTURE.md. */
 const ARMEABI_V7A = 'armeabi-v7a';
 const X86 = 'x86';
 
@@ -124,34 +128,16 @@ async function loadInstalledApps() {
   }
 }
 
-/*
- * Two different questions, two different tools, on purpose:
- *
- * - An installed package: ask Android's own package manager what ABI
- *   it's actually using, via `dumpsys package`. This doesn't need
- *   `unzip` at all, and reflects Android's own authoritative call
- *   rather than us re-deriving it. The exact output format isn't
- *   guaranteed identical across Android versions (dumpsys is a debug
- *   dump, not a stable API), so this scans for known ABI name strings
- *   on lines that mention "abi" rather than parsing one exact field.
- * - A raw .apk file (not installed yet): there's no dumpsys entry for
- *   it, so this actually needs to look inside the zip. `unzip` covers
- *   this, but it is NOT part of Android's built-in toybox utilities
- *   (checked the full applet list, it's genuinely not there), so some
- *   devices won't have it at all. Checked for up front instead of
- *   failing with a confusing error partway through.
- */
+/* Installed apps: ask `dumpsys package` (Android's own answer, no unzip
+ * needed). Raw APK paths need to look inside the zip instead, see
+ * inspectAbisFromApkFile. See docs/ARCHITECTURE.md for why both exist. */
 const KNOWN_ABIS = ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86', 'armeabi'];
 
 async function inspectAbisFromDumpsys(pkg) {
   const result = await run('dumpsys package ' + pkg + ' | grep -i abi');
   const found = new Set();
   for (const line of result.stdout.split('\n')) {
-    /* Token match, not substring match: 'armeabi' is a substring of
-     * 'armeabi-v7a' and 'x86' of 'x86_64', so a naive .includes() scan
-     * would report both for a line that only actually says the longer
-     * one. Splitting into tokens on anything that isn't part of an ABI
-     * name avoids that collision. */
+    /* Tokenized, not .includes(): 'armeabi' is a substring of 'armeabi-v7a'. */
     const tokens = line.split(/[^a-zA-Z0-9_-]+/);
     for (const token of tokens) {
       if (KNOWN_ABIS.includes(token)) {
@@ -272,4 +258,12 @@ async function init() {
   await loadInstalledApps();
 }
 
-init();
+/* No-op under Node (require()'d by app.test.js); document only exists in a WebView. */
+if (typeof document !== 'undefined') {
+  init();
+}
+
+/* Exposes pure logic to app.test.js. Browsers never define `module`, so this is a no-op there. */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { checkCompatibility, normalizeExecResult };
+}

@@ -13,12 +13,7 @@ data class CompatibilityReport(
     val notes: List<String>,
 )
 
-/**
- * The actual "will this app work here" logic. Deliberately narrow: it only
- * reasons about ABIs and whether the Mango module is active, matching what
- * docs/ARCHITECTURE.md settled on (Option A, system-level native bridge)
- * rather than per-APK patching.
- */
+/** The "will this app work here" logic; ABIs and module-active state only, see docs/ARCHITECTURE.md (Option A). */
 object CompatibilityChecker {
     fun check(
         apk: ApkAbiInfo,

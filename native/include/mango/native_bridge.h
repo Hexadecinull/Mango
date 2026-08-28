@@ -84,12 +84,7 @@ struct NativeBridgeCallbacks {
   bool (*isPathSupported)(const char* library_path);
   bool (*initAnonymousNamespace)(const char* public_ns_sonames, const char* anon_ns_library_path);
   /* clang-format off */
-  /* This one's had three different hand-guessed wrappings in a row, each
-   * "fixed" by CI finding the next mismatch, a good sign this specific
-   * shape is hitting clang-format's line-breaking optimizer in a way
-   * that's genuinely not worth hand-replicating. Formatting below is
-   * readable and correct, just not guaranteed byte-identical to what
-   * clang-format itself would produce. */
+  /* Hand-wrapped, not guaranteed byte-identical to clang-format's own output. */
   struct native_bridge_namespace_t* (*createNamespace)(
       const char* name,
       const char* ld_library_path,

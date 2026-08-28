@@ -23,7 +23,9 @@ compose.desktop {
         mainClass = "dev.mango.desktop.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            // Windows/macOS APK-inspection helper, not Linux support (that's
+            // linux/ now, a real standalone translator, see its README).
+            targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Mango"
             packageVersion = "0.1.0"
         }

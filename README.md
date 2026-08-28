@@ -34,8 +34,13 @@ module. Once installed, 32-bit-only apps become launchable device-wide.
 
 The on-device UI is a WebUI built into the module itself (opened from your
 root manager app, no separate app to install) for picking an app, checking
-it, and installing it. There's also a desktop app for inspecting an APK
-from a PC.
+it, and installing it. There's also a small Windows/macOS desktop app for
+inspecting an APK from a PC.
+
+Android isn't the only place this problem shows up: a 64-bit-only Linux
+system can't run a 32-bit ARM binary either, for the same hardware reason.
+`linux/` is an early, standalone (no root, no Android) take on that, see
+its own README for what's real versus a proof of concept so far.
 
 Full explanation, including why a module + WebUI rather than a standalone
 app or per-APK patching, in `docs/ARCHITECTURE.md`.
@@ -44,8 +49,9 @@ app or per-APK patching, in `docs/ARCHITECTURE.md`.
 
 ```
 core/     shared Kotlin: APK inspection, compatibility checks (used by desktop/)
-desktop/  desktop app (Compose Desktop)
-native/   the ARM32 -> ARM64 translator (C, CMake)
+desktop/  Windows/macOS APK-inspection helper app (Compose Desktop)
+native/   the ARM32 -> ARM64 translator for Android (C, CMake)
+linux/    early standalone ARM32 -> ARM64 support for Linux itself (C, CMake)
 module/   the Magisk/KernelSU/KernelSU-Next/APatch module, including the WebUI
 docs/     everything below
 scripts/  build helper scripts

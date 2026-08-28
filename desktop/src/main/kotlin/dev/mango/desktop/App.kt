@@ -23,10 +23,7 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
 
-/**
- * Inspect-only for now: no root here, see docs/USAGE.md's desktop section.
- * "push to device" (adb) is a planned next step, not implemented yet.
- */
+/** Inspect-only, no root/adb push yet, see docs/USAGE.md's desktop section. */
 @Composable
 fun App() {
     var report by remember { mutableStateOf<ApkAbiInfo?>(null) }

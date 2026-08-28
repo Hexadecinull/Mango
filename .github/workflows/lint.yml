@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: node --check module/webroot/app.js
+      - run: node --test module/webroot/app.test.js
 
   clang-format:
     runs-on: ubuntu-latest

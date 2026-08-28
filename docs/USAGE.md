@@ -47,13 +47,14 @@ without being able to make it run yet.
    actual shell commands the WebUI is running, rather than trusting the
    summary.
 
-## Option 2: Desktop app
+## Option 2: Desktop app (Windows, macOS)
 
 Useful if you'd rather prepare things on a PC and push the result to your
 phone, or if you just want to inspect an APK without touching your device.
 No root is needed on the desktop side; root is only needed on the phone,
 and only for the module + WebUI above, the desktop app doesn't need or ask
-for it.
+for it. On Linux, `scripts/package_module.sh` and friends already do this
+from the command line; see `docs/BUILDING.md`.
 
 1. Open an APK file in the desktop app.
 2. It runs the same ABI checks and shows you the result.

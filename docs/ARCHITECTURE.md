@@ -125,10 +125,19 @@ KsuWebUI both existing is a good sign this is solved in practice, but it's
 worth testing on a real Magisk device rather than assuming; see
 `docs/SECURITY.md` and `module/README.md`.
 
+APatch is now confirmed to diverge, not just theoretically: its
+`exec(cmd)` resolves to a bare stdout string rather than KernelSU/Magisk's
+`{errno, stdout, stderr}` object (checked against APatch's
+`WebViewInterface` source), which used to crash the WebUI on first load.
+`module/webroot/app.js`'s `run()` normalizes both shapes now; see
+`module/README.md`.
+
 `desktop/` (and the `core/` module it depends on) stayed as a normal
-Compose Desktop app: it doesn't run with root the way the on-device UI
-does, so none of the reasoning above changes anything about it, it's
-still a separate app for local APK inspection from a PC.
+Compose Desktop app, now scoped to Windows/macOS specifically: it doesn't
+run with root the way the on-device UI does, so none of the reasoning
+above changes anything about it, it's still a separate app for local APK
+inspection from a PC. Linux gets first-class standalone support instead,
+via `linux/`, described below.
 
 ## Repository layout
 
@@ -137,15 +146,40 @@ core/     shared Kotlin: APK inspection, install-compatibility checks,
           signing helpers, orchestration. No Android or UI dependencies.
           Used by desktop/; the WebUI reimplements the same checks in JS,
           since it can't call into the JVM, see "Why a WebUI" above.
-desktop/  Compose Desktop app. Same checks, useful for inspecting an APK
-          or preparing the module/translator build before pushing to a
-          device over adb. Needs no root itself.
-native/   the translator: the native bridge implementation and the actual
-          AArch32/Thumb-2 -> AArch64 translation engine. C/C++, CMake,
-          cross-compiled with the NDK. This is the hard, unfinished part.
+desktop/  Compose Desktop app, Windows/macOS. Same checks, useful for
+          inspecting an APK or preparing the module/translator build
+          before pushing to a device over adb. Needs no root itself.
+native/   the Android translator: the native bridge implementation and
+          the actual AArch32/Thumb-2 -> AArch64 translation engine.
+          C/C++, CMake, cross-compiled with the NDK. This is the hard,
+          unfinished part.
+linux/    an early, standalone (no root, no Android, no native bridge)
+          take on the same translation problem for Linux itself. Reuses
+          native/'s decoder+interpreter core; see its own README for what
+          that means and how little of it is real yet.
 module/   the Magisk/KernelSU/KernelSU-Next/APatch module. module/webroot/
           is the on-device UI, see above.
 ```
+
+## Standalone Linux support
+
+Tango itself has more than the native-bridge integration described above:
+its own docs mention a "standalone mode" that does full process-level
+dynamic binary translation, the same shape of thing QEMU's `linux-user`
+does for other ISA pairs. That mode doesn't depend on Android or ART at
+all, which means the identical hardware problem (a 64-bit-only chip that
+can't run AArch32 code) shows up just as much on a 64-bit-only Linux
+system as it does on Android, and can be solved the same way: a normal
+process, not a system hook.
+
+`linux/` is Mango's early take on that. It reuses `native/`'s decoder and
+interpreter completely unchanged (the CPU-instruction-level problem is
+identical) and adds what's genuinely different: an ELF32 loader instead
+of ART's native-bridge hook, and syscall thunking instead of JNI
+resolution, since a bare Linux process has no runtime to defer to when
+the guest traps into the kernel. See `linux/README.md` for the actual
+design and, importantly, for what's a real proof of concept today versus
+still a sketch; don't take this section as evidence it works yet.
 
 ## Why the translation engine is genuinely hard
 
@@ -241,3 +275,9 @@ rather than a rewrite of the last:
 
 Phase 1 is where a new contributor should look first; see
 `docs/CONTRIBUTING.md`.
+
+`linux/`'s standalone support is a parallel track, not a blocker on any of
+the phases above or vice versa: it shares Phase 1's decoder/interpreter
+core directly, but needs its own ELF loading and syscall thunking before
+it reaches anything like Phase 2. See `linux/README.md` for where that
+stands.
