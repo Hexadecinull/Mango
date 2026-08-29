@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "mango/cpu.h"
+#include "mango/decoder.h"
 #include "mango/interp.h"
 
 /* Hand-encoded A32, cond=AL throughout. See native/README.md before
@@ -599,6 +600,280 @@ static int test_bl_call_and_return(void) {
   return 0;
 }
 
+static int test_full_alu_opcodes(void) {
+  /* mov r0,#0xCC ; and r1,r0,#0xAA ; eor r2,r0,#0xF0 ; orr r3,r0,#0x0F ;
+   * bic r4,r0,#0xF0 ; mvn r5,#0 ; rsb r6,r0,#0xFF ; bx lr
+   * Exercises every opcode that wasn't already covered: AND, EOR, ORR,
+   * BIC, MVN, RSB. */
+  static const uint32_t kProgram[] = {
+      0xE3A000CCu, /* mov r0, #0xCC */
+      0xE20010AAu, /* and r1, r0, #0xAA */
+      0xE22020F0u, /* eor r2, r0, #0xF0 */
+      0xE380300Fu, /* orr r3, r0, #0x0F */
+      0xE3C040F0u, /* bic r4, r0, #0xF0 */
+      0xE3E05000u, /* mvn r5, #0 */
+      0xE26060FFu, /* rsb r6, r0, #0xFF */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 8);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x7777u;
+
+  int rc = mango_interp_run(&cpu, &mem, 0x7777u, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(full_alu_opcodes): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  struct {
+    uint32_t reg;
+    uint32_t want;
+    const char* name;
+  } checks[] = {
+      {cpu.r[1], 0x88, "r1 (and)"}, {cpu.r[2], 0x3C, "r2 (eor)"}, {cpu.r[3], 0xCF, "r3 (orr)"},
+      {cpu.r[4], 0x0C, "r4 (bic)"}, {cpu.r[5], 0xFFFFFFFFu, "r5 (mvn)"}, {cpu.r[6], 0x33, "r6 (rsb)"},
+  };
+  for (size_t i = 0; i < sizeof(checks) / sizeof(checks[0]); i++) {
+    if (checks[i].reg != checks[i].want) {
+      fprintf(stderr, "FAIL(full_alu_opcodes): expected %s == 0x%x, got 0x%x\n", checks[i].name,
+              checks[i].want, checks[i].reg);
+      return 1;
+    }
+  }
+  printf("ok: and/eor/orr/bic/mvn/rsb all correct\n");
+  return 0;
+}
+
+static int test_adc_carry_chain(void) {
+  /* A 64-bit add spread across two 32-bit registers each, the actual
+   * reason ADC exists: adds+adc must carry the low word's overflow into
+   * the high word.
+   * mvn r0,#0 (r0=0xFFFFFFFF, low(A)) ; mov r1,#1 (high(A)) ;
+   * mov r2,#1 (low(B)) ; mov r3,#0 (high(B)) ;
+   * adds r4,r0,r2 (0xFFFFFFFF+1 wraps to 0, C=1) ;
+   * adc r5,r1,r3 (1+0+C = 2) ; bx lr */
+  static const uint32_t kProgram[] = {
+      0xE3E00000u, /* mvn r0, #0 */
+      0xE3A01001u, /* mov r1, #1 */
+      0xE3A02001u, /* mov r2, #1 */
+      0xE3A03000u, /* mov r3, #0 */
+      0xE0904002u, /* adds r4, r0, r2 */
+      0xE0A15003u, /* adc r5, r1, r3 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 7);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x8888u;
+
+  int rc = mango_interp_run(&cpu, &mem, 0x8888u, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(adc_carry_chain): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  if (cpu.r[4] != 0 || cpu.r[5] != 2) {
+    fprintf(stderr, "FAIL(adc_carry_chain): expected r4==0 r5==2, got r4=%u r5=%u\n", cpu.r[4],
+            cpu.r[5]);
+    return 1;
+  }
+  printf("ok: adds+adc carries a 64-bit add across two registers (r4=%u, r5=%u)\n", cpu.r[4],
+         cpu.r[5]);
+  return 0;
+}
+
+static int test_sbc_rsc(void) {
+  /* mov r0,#5 ; subs r0,r0,#10 (r0 = -5, borrow, C=0) ;
+   * sbc r1,r0,#2 (r1 = -5 - 2 - !C(1) = -8) ;
+   * rsc r2,r0,#0 (r2 = 0 - (-5) - !C(1) = 4) ; bx lr */
+  static const uint32_t kProgram[] = {
+      0xE3A00005u, /* mov r0, #5 */
+      0xE250000Au, /* subs r0, r0, #10 */
+      0xE2C01002u, /* sbc r1, r0, #2 */
+      0xE2E02000u, /* rsc r2, r0, #0 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 5);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x1234u;
+
+  int rc = mango_interp_run(&cpu, &mem, 0x1234u, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(sbc_rsc): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  if (cpu.r[0] != 0xFFFFFFFBu || cpu.r[1] != 0xFFFFFFF8u || cpu.r[2] != 4) {
+    fprintf(stderr, "FAIL(sbc_rsc): expected r0=0xfffffffb r1=0xfffffff8 r2=4, got r0=0x%x r1=0x%x r2=%u\n",
+            cpu.r[0], cpu.r[1], cpu.r[2]);
+    return 1;
+  }
+  printf("ok: sbc/rsc borrow chain correct (r1=0x%x, r2=%u)\n", cpu.r[1], cpu.r[2]);
+  return 0;
+}
+
+static int test_mul(void) {
+  /* mov r0,#6 ; mov r1,#7 ; mul r2,r0,r1 ; bx lr */
+  static const uint32_t kProgram[] = {
+      0xE3A00006u, /* mov r0, #6 */
+      0xE3A01007u, /* mov r1, #7 */
+      0xE0020190u, /* mul r2, r0, r1 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 4);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x5555u;
+
+  int rc = mango_interp_run(&cpu, &mem, 0x5555u, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(mul): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  if (cpu.r[2] != 42) {
+    fprintf(stderr, "FAIL(mul): expected r2 == 42, got %u\n", cpu.r[2]);
+    return 1;
+  }
+  printf("ok: mul r2, r0, r1 (r2 = %u)\n", cpu.r[2]);
+  return 0;
+}
+
+static int test_tst_teq_cmn_dont_write_rd(void) {
+  /* mov r0,#0x0F ; mov r1,#0x99 (poisons r1 so a wrongly-written TST/TEQ/
+   * CMN would be caught) ; tst r0,#0xFF ; teq r0,#0x0F ; cmn r0,#1 ; bx lr
+   * All three only need to leave r1 untouched; their flag effects are
+   * already covered indirectly by the conditional-branch tests. */
+  static const uint32_t kProgram[] = {
+      0xE3A0000Fu, /* mov r0, #0x0F */
+      0xE3A01099u, /* mov r1, #0x99 */
+      0xE31000FFu, /* tst r0, #0xFF, Rd field left 0 */
+      0xE330000Fu, /* teq r0, #0x0F, Rd field left 0 */
+      0xE3700001u, /* cmn r0, #1, Rd field left 0 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 6);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x4444u;
+
+  int rc = mango_interp_run(&cpu, &mem, 0x4444u, 100);
+  if (rc != 0) {
+    fprintf(stderr, "FAIL(tst_teq_cmn_dont_write_rd): mango_interp_run returned %d\n", rc);
+    return 1;
+  }
+  if (cpu.r[0] != 0x0F || cpu.r[1] != 0x99) {
+    fprintf(stderr,
+            "FAIL(tst_teq_cmn_dont_write_rd): expected r0=0x0f r1=0x99 unchanged, got r0=0x%x r1=0x%x\n",
+            cpu.r[0], cpu.r[1]);
+    return 1;
+  }
+  printf("ok: tst/teq/cmn leave their registers alone, flags only\n");
+  return 0;
+}
+
+static int test_svc_stops_and_can_resume(void) {
+  /* mov r7,#1 ; svc #0 ; mov r0,#99 ; bx lr. mango_core has no syscalls of
+   * its own (see native/README.md); it stops at the SVC and hands control
+   * back, exactly the interface linux/'s and native_bridge_shim.c's
+   * eventual syscall thunking would build on. */
+  static const uint32_t kProgram[] = {
+      0xE3A07001u, /* mov r7, #1 */
+      0xEF000000u, /* svc #0 */
+      0xE3A00063u, /* mov r0, #99 */
+      0xE12FFF1Eu, /* bx lr */
+  };
+
+  uint8_t mem_buf[64];
+  load_words(mem_buf, sizeof(mem_buf), kProgram, 4);
+  MangoMemory mem = {mem_buf, sizeof(mem_buf)};
+
+  MangoCpu cpu;
+  for (int i = 0; i < 16; i++) {
+    cpu.r[i] = 0;
+  }
+  cpu.cpsr = 0;
+  cpu.r[MANGO_REG_LR] = 0x9999u;
+
+  int rc = mango_interp_run(&cpu, &mem, 0x9999u, 100);
+  if (rc != 1) {
+    fprintf(stderr, "FAIL(svc_stops_and_can_resume): first run returned %d, want 1\n", rc);
+    return 1;
+  }
+  if (cpu.r[MANGO_REG_PC] != 4 || cpu.r[7] != 1) {
+    fprintf(stderr, "FAIL(svc_stops_and_can_resume): pc=%u r7=%u, want pc=4 r7=1\n",
+            cpu.r[MANGO_REG_PC], cpu.r[7]);
+    return 1;
+  }
+
+  /* A caller would do its syscall here; this test just resumes past it. */
+  cpu.r[MANGO_REG_PC] += 4;
+  rc = mango_interp_run(&cpu, &mem, 0x9999u, 100);
+  if (rc != 0 || cpu.r[0] != 99) {
+    fprintf(stderr, "FAIL(svc_stops_and_can_resume): resumed run gave rc=%d r0=%u, want rc=0 r0=99\n", rc,
+            cpu.r[0]);
+    return 1;
+  }
+  printf("ok: svc stops the interpreter with r7 intact, and resuming past it works\n");
+  return 0;
+}
+
+
+static int test_mla_and_s0_compares_rejected(void) {
+  /* MLA (the A=1 sibling of MUL) and TST/TEQ/CMP/CMN with S=0 both share
+   * bit patterns with real opcodes (AND/EOR and MRS/MSR respectively);
+   * decoding either as if they were is a silent-corruption bug waiting
+   * to happen, so both must be flatly rejected instead of guessed at. */
+  MangoInsn insn;
+  uint32_t mla = 0xE0203190u; /* mla r0, r0, r1, r3 */
+  if (mango_decode(mla, &insn) == 0) {
+    fprintf(stderr, "FAIL(mla_and_s0_compares_rejected): mla was decoded, should be rejected\n");
+    return 1;
+  }
+  uint32_t cmp_s0 = 0xE1400001u; /* looks like "cmp r0,r1" but S=0: not really CMP */
+  if (mango_decode(cmp_s0, &insn) == 0) {
+    fprintf(stderr,
+            "FAIL(mla_and_s0_compares_rejected): CMP-shaped word with S=0 was decoded, "
+            "should be rejected\n");
+    return 1;
+  }
+  printf("ok: mla and S=0 tst/teq/cmp/cmn shapes correctly rejected\n");
+  return 0;
+}
+
 int main(void) {
   int failures = 0;
   failures += test_mov_add_bx();
@@ -614,6 +889,13 @@ int main(void) {
   failures += test_adds_signed_overflow_without_carry();
   failures += test_subs_borrow_no_overflow();
   failures += test_bl_call_and_return();
+  failures += test_full_alu_opcodes();
+  failures += test_adc_carry_chain();
+  failures += test_sbc_rsc();
+  failures += test_mul();
+  failures += test_tst_teq_cmn_dont_write_rd();
+  failures += test_mla_and_s0_compares_rejected();
+  failures += test_svc_stops_and_can_resume();
 
   if (failures != 0) {
     fprintf(stderr, "%d test(s) failed\n", failures);

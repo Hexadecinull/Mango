@@ -56,11 +56,17 @@ and only for the module + WebUI above, the desktop app doesn't need or ask
 for it. On Linux, `scripts/package_module.sh` and friends already do this
 from the command line; see `docs/BUILDING.md`.
 
-1. Open an APK file in the desktop app.
-2. It runs the same ABI checks and shows you the result.
-3. The module itself still needs to be installed on the phone the normal
-   way (Option 1, step 1); the desktop app doesn't install anything on a
-   connected device.
+1. Open an APK file in the desktop app; it runs the same ABI checks
+   (`core/`'s `CompatibilityChecker`, the same logic the WebUI mirrors)
+   and shows you the result.
+2. "Check connected device" queries a device over `adb` (must be on your
+   PATH, and the device authorized) for its real ABI list and whether
+   Mango's native bridge is active, then combines that with the APK check
+   above for a real verdict instead of just "what's in the APK".
+3. "Push module to device" runs `adb push` on `build/mango-module.zip`
+   (`scripts/package_module.sh`'s output) to the device's Downloads
+   folder. Flashing it is still a manual step in your root manager app
+   (Option 1, step 1); the desktop app doesn't flash anything itself.
 
 ## Option 3: Do it entirely by hand
 

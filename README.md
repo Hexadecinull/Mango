@@ -59,11 +59,7 @@ scripts/  build helper scripts
 
 ## Docs
 
-- [`docs/USAGE.md`](docs/USAGE.md) — how to use it
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how it works, and what's real vs. planned
-- [`docs/BUILDING.md`](docs/BUILDING.md) — build instructions
-- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — how to help
-- [`docs/TERMS.md`](docs/TERMS.md) · [`docs/PRIVACY.md`](docs/PRIVACY.md) · [`docs/SECURITY.md`](docs/SECURITY.md) · [`docs/CODE_OF_CONDUCT.md`](docs/CODE_OF_CONDUCT.md)
+See [`docs/README.md`](docs/README.md) for how to navigate the rest of the documentation.
 
 ## License
 

@@ -119,20 +119,24 @@ host's own toolchain, no NDK involved:
 ```
 cmake -S linux -B linux/build
 cmake --build linux/build
-./linux/build/mango_linux_selfcheck
+ctest --test-dir linux/build
+./linux/build/mango_linux_loader some-static-non-pie-arm32-binary
 ```
 
 or without CMake at all, same idea as `native/README.md`'s alternative:
 
 ```
-cc -std=c11 -Wall -Wextra -Werror -Inative/include \
-  native/src/decoder.c native/src/interp.c linux/src/selfcheck.c \
-  -o /tmp/mango_linux_selfcheck
+cc -std=c11 -Wall -Wextra -Werror -Inative/include -Ilinux/include \
+  native/src/decoder.c native/src/interp.c native/src/elf32.c \
+  linux/src/loader_core.c linux/src/loader.c -o /tmp/mango_linux_loader
 ```
 
-See `linux/README.md` before expecting much: `mango_linux_selfcheck`
-really runs (it proves the interpreter core builds outside Android/NDK),
-but `mango_linux_loader` is currently a stub, not a working translator.
+See `linux/README.md` before expecting much: `mango_linux_loader` really
+loads and runs static, non-PIE ARM32 code now (verified end to end
+against a hand-built, `readelf`-checked executable in
+`linux/tests/test_loader.c`), but stops the moment a real binary makes a
+syscall (`SVC`/`SWI` isn't decodable yet), so it's not a working
+translator for anything you'd actually download.
 
 ## Building the module (including the WebUI)
 
@@ -159,10 +163,15 @@ adb push build/mango-module.zip /sdcard/Download/
 ./gradlew :core:test
 ```
 
-`native/tests/` has its own small test harness; see `native/README.md`
-for how to build and run it, since it isn't part of the Gradle build.
-`linux/`'s `mango_linux_selfcheck` (above) is a much smaller sibling of
-that same harness, for the standalone build.
+`native/tests/` (`test_interp.c`, `test_elf32.c`, and
+`test_native_bridge_shim.c`, the last built against
+`tests/fake_jni/jni.h`, a deliberately minimal stand-in, not the real NDK
+header) has its own small
+test harness; see `native/README.md` for how to build and run it, since
+it isn't part of the Gradle build. `linux/tests/test_loader.c` is the
+same idea for the standalone build, run via `ctest` (above) or directly;
+`mango_linux_selfcheck` is a much smaller, separate sibling proving the
+interpreter core alone builds outside Android/NDK.
 
 ## CI
 

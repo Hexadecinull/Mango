@@ -32,13 +32,14 @@ what surrounds it (ELF loading, syscalls) differs from the Android side.
 
 ## Design
 
-- **ELF loading.** Parse the guest's ELF32 header and `PT_LOAD` program
-  headers, and copy each segment into a flat `MangoMemory` buffer at its
+- **ELF loading.** Parses the guest's ELF32 header and `PT_LOAD` program
+  headers, and copies each segment into a flat `MangoMemory` buffer at its
   intended virtual address, the same memory model `native/`'s interpreter
-  already uses. Scoped narrow at first: static, non-PIE executables only.
-  PIE (position-independent, the default for modern toolchains) and dynamic
-  linking (resolving a guest `.so`'s own imports) are real follow-up work,
-  not this phase.
+  already uses. Real now (`native/src/elf32.c`, `src/loader_core.c`), but
+  scoped narrow: static, non-PIE executables only. PIE (position-
+  independent, the default for modern toolchains) and dynamic linking
+  (resolving a guest `.so`'s own imports) are real follow-up work, listed
+  below.
 - **Syscall thunking.** When the guest executes `SVC #0`, AAPCS32 says the
   syscall number is in `r7` and up to six arguments are in `r0`-`r6`. The
   host is a 64-bit Linux process, so instead of translating that into the
@@ -55,22 +56,34 @@ what surrounds it (ELF loading, syscalls) differs from the Android side.
 
 ## Current status
 
-Proof of concept, not a translator:
+Genuinely loads and runs static, non-PIE ARM32 code now, not just a demo,
+but still short of running a real program end to end:
 
-- `src/selfcheck.c` / `mango_linux_selfcheck`: really works. Runs a small
-  hand-encoded A32 program through `mango_core` as an ordinary host binary
-  and checks the result, proving the interpreter builds and runs with zero
-  Android/NDK/JNI in the loop. This is a demo, not a replacement for
-  `native/tests/test_interp.c`'s real coverage.
-- `src/loader.c` / `mango_linux_loader`: a stub. Takes a path, prints what
-  isn't implemented yet, exits nonzero. No ELF parsing, no syscalls, no
-  guest memory setup. This exists so the CMake target, the CI job, and the
-  docs referencing it are all real today, and a contributor has one
-  obvious file to start filling in rather than a bare directory.
-- The decoder's real limitations are `native/`'s, not new: `SVC`/`SWI`
-  (the syscall trap itself) isn't decoded yet, so even a trivial guest
-  program that calls `exit()` can't run end to end until that's added,
-  with its own test coverage, per `docs/CONTRIBUTING.md`.
+- `src/selfcheck.c` / `mango_linux_selfcheck`: runs a small hand-encoded
+  A32 program through `mango_core` as an ordinary host binary, proving the
+  interpreter builds and runs with zero Android/NDK/JNI in the loop. A
+  demo, not a replacement for `native/tests/test_interp.c`'s real coverage.
+- `native/src/elf32.c` (`mango_elf32_parse`/`mango_elf32_find_symbol`):
+  real ELF32 parsing, shared with `native_bridge_shim.c`. Reads `PT_LOAD`
+  segments from the program header table and `.dynsym`/`.dynstr` from the
+  section header table (so it needs section headers to be present for
+  symbol lookup, though not for pure execution, see
+  `native/tests/test_elf32.c`, verified against a real `readelf`-checked
+  fixture, both a real one `gcc -m32` produced and a small hand-built one).
+- `src/loader_core.c` (`mango_linux_load_and_run`) / `src/loader.c`
+  (`mango_linux_loader`, the CLI): really loads an ELF32 ARM executable's
+  segments into guest memory and runs it from its entry point via
+  `mango_core`, see `tests/test_loader.c`, which does exactly this against
+  a hand-built, `readelf`-verified two-instruction ARM32 executable and
+  checks the actual resulting register value, not just "it didn't crash."
+  Static, non-PIE only (see "Design" above), and the guest memory size is
+  a fixed 1 MiB for now, not sized from the binary's actual segments.
+- The decoder's real limitation is `native/`'s, not new: `SVC`/`SWI` (the
+  syscall trap itself) isn't decoded yet, so a real program that calls
+  `exit()` or does anything else syscall-based stops there, reported as
+  `MANGO_LINUX_LOAD_INTERP_FAILED`, not a crash, but not a completed run
+  either. This is genuinely the one thing blocking a real (not
+  hand-built) ARM32 static binary from running end to end.
 
 ## Building
 
@@ -80,15 +93,16 @@ the host's own toolchain.
 ```
 cmake -B build
 cmake --build build
-./build/mango_linux_selfcheck
+ctest --test-dir build
+./build/mango_linux_loader some-arm32-binary
 ```
 
 or without CMake, same as `native/README.md`'s alternative:
 
 ```
-cc -std=c11 -Wall -Wextra -Werror -I../native/include \
-  ../native/src/decoder.c ../native/src/interp.c src/selfcheck.c \
-  -o /tmp/mango_linux_selfcheck
+cc -std=c11 -Wall -Wextra -Werror -I../native/include -Iinclude \
+  ../native/src/decoder.c ../native/src/interp.c ../native/src/elf32.c \
+  src/loader_core.c src/loader.c -o /tmp/mango_linux_loader
 ```
 
 ## Where to look if you want to help
@@ -96,8 +110,11 @@ cc -std=c11 -Wall -Wextra -Werror -I../native/include \
 - `SVC`/`SWI` decoding in `native/src/decoder.c` (with its own test case in
   `native/tests/test_interp.c`, per `docs/CONTRIBUTING.md`) is the actual
   unblocking step; nothing here can run a real syscall-making binary
-  without it.
-- ELF32 header/program-header parsing for `src/loader.c`, scoped to static
-  non-PIE binaries first.
+  without it, no matter how good the loader gets.
 - A syscall thunk table, starting with just `exit`/`write`, once `SVC` is
   decodable.
+- PIE support: reading `PT_DYNAMIC`'s relocation entries and applying
+  them, since most real toolchains default to PIE now.
+- Sizing guest memory from the binary's own segments instead of a fixed
+  1 MiB, and rejecting overlapping/malicious segment layouts more
+  carefully than the current bounds checks do.

@@ -136,8 +136,9 @@ APatch is now confirmed to diverge, not just theoretically: its
 Compose Desktop app, now scoped to Windows/macOS specifically: it doesn't
 run with root the way the on-device UI does, so none of the reasoning
 above changes anything about it, it's still a separate app for local APK
-inspection from a PC. Linux gets first-class standalone support instead,
-via `linux/`, described below.
+inspection from a PC, now also able to query a connected device over
+`adb` and push a packaged module to it, see `docs/USAGE.md`. Linux gets
+first-class standalone support instead, via `linux/`, described below.
 
 ## Repository layout
 
@@ -155,8 +156,9 @@ native/   the Android translator: the native bridge implementation and
           unfinished part.
 linux/    an early, standalone (no root, no Android, no native bridge)
           take on the same translation problem for Linux itself. Reuses
-          native/'s decoder+interpreter core; see its own README for what
-          that means and how little of it is real yet.
+          native/'s decoder+interpreter core; see its own README for
+          exactly what's real (loading and running static, non-PIE ARM32
+          code) versus not (anything that makes a syscall) yet.
 module/   the Magisk/KernelSU/KernelSU-Next/APatch module. module/webroot/
           is the on-device UI, see above.
 ```
@@ -172,14 +174,16 @@ can't run AArch32 code) shows up just as much on a 64-bit-only Linux
 system as it does on Android, and can be solved the same way: a normal
 process, not a system hook.
 
-`linux/` is Mango's early take on that. It reuses `native/`'s decoder and
-interpreter completely unchanged (the CPU-instruction-level problem is
-identical) and adds what's genuinely different: an ELF32 loader instead
-of ART's native-bridge hook, and syscall thunking instead of JNI
-resolution, since a bare Linux process has no runtime to defer to when
-the guest traps into the kernel. See `linux/README.md` for the actual
-design and, importantly, for what's a real proof of concept today versus
-still a sketch; don't take this section as evidence it works yet.
+`linux/` is Mango's early take on that. It reuses `native/`'s decoder,
+interpreter, and now ELF32 parser (`native/src/elf32.c`, shared with the
+Android shim) completely unchanged, and adds what's genuinely different:
+an ELF loader instead of ART's native-bridge hook, and syscall thunking
+instead of JNI resolution, since a bare Linux process has no runtime to
+defer to when the guest traps into the kernel. Loading and running static,
+non-PIE ARM32 code is real now, verified end to end against a hand-built,
+`readelf`-checked executable, see `linux/README.md`; syscall thunking
+(so a genuinely real binary, not a hand-built one, can run to completion)
+is the part that's still just a sketch.
 
 ## Why the translation engine is genuinely hard
 

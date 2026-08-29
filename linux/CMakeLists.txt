@@ -15,7 +15,16 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../native" "${CMAKE_CURRENT_BINARY
 add_executable(mango_linux_selfcheck src/selfcheck.c)
 target_link_libraries(mango_linux_selfcheck PRIVATE mango_core)
 
-# Honest stub: takes an ELF path, prints what's not implemented yet, exits
-# nonzero. Real ELF loading + syscall thunking isn't here yet, see README.
+# The real (if still narrow: static, non-PIE only) ELF loading + execution
+# logic, separate from the CLI so tests/test_loader.c can drive it directly.
+add_library(mango_linux_loader_core STATIC src/loader_core.c)
+target_include_directories(mango_linux_loader_core PUBLIC include)
+target_link_libraries(mango_linux_loader_core PUBLIC mango_core)
+
 add_executable(mango_linux_loader src/loader.c)
-target_link_libraries(mango_linux_loader PRIVATE mango_core)
+target_link_libraries(mango_linux_loader PRIVATE mango_linux_loader_core)
+
+enable_testing()
+add_executable(mango_linux_loader_tests tests/test_loader.c)
+target_link_libraries(mango_linux_loader_tests PRIVATE mango_linux_loader_core)
+add_test(NAME linux_loader_smoke_test COMMAND mango_linux_loader_tests)

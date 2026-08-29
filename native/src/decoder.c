@@ -1,8 +1,10 @@
 #include "mango/decoder.h"
 
+#include "mango/cpu.h"
+
 int mango_decode(uint32_t word, MangoInsn* out) {
   out->cond = (word >> 28) & 0xF;
-  out->rd = out->rn = out->rm = out->imm = 0;
+  out->rd = out->rn = out->rm = out->rs = out->imm = 0;
   out->shift_type = 0;
   out->shift_amount = 0;
   out->is_imm = 0;
@@ -13,6 +15,14 @@ int mango_decode(uint32_t word, MangoInsn* out) {
 
   if (out->cond == 0xF) {
     return -1; /* 0xF is ARMv5+'s unconditional-extension selector, not a real cond */
+  }
+
+  /* SVC/SWI: bits 27-24 = 1111, the rest is a legacy immediate EABI code
+   * ignores; the actual syscall number is in r7 at execution time, not
+   * decoded here, see mango_interp_run's SVC case in interp.c. */
+  if (((word >> 24) & 0xF) == 0xF) {
+    out->op = MANGO_OP_SVC;
+    return 0;
   }
 
   /* BX Rm: cond 0001 0010 1111 1111 1111 0001 Rm */
@@ -37,6 +47,30 @@ int mango_decode(uint32_t word, MangoInsn* out) {
     return 0;
   }
 
+  /* MUL Rd,Rm,Rs: cond 000000 A S Rd 0000 Rs 1001 Rm. Same bits27-26 as
+   * data-processing below, so this must be checked first or AND/EOR would
+   * silently steal it (their opcodes are 0000/0001, exactly A/S here). */
+  if (((word >> 22) & 0x3F) == 0x0 && ((word >> 4) & 0xF) == 0x9) {
+    uint32_t a = (word >> 21) & 0x1;
+    uint32_t s = (word >> 20) & 0x1;
+    uint32_t rd = (word >> 16) & 0xF;
+    uint32_t rn_field = (word >> 12) & 0xF;
+    uint32_t rs = (word >> 8) & 0xF;
+    uint32_t rm = word & 0xF;
+    if (a) {
+      return -1; /* MLA, not supported yet */
+    }
+    if (rn_field != 0 || rd == MANGO_REG_PC || rm == MANGO_REG_PC || rs == MANGO_REG_PC) {
+      return -1; /* SBZ violated, or PC as an operand, both UNPREDICTABLE */
+    }
+    out->op = MANGO_OP_MUL;
+    out->rd = rd;
+    out->rm = rm;
+    out->rs = rs;
+    out->sets_flags = (int)s;
+    return 0;
+  }
+
   /* Data-processing: bits 27-26 == 00 */
   if (((word >> 26) & 0x3) == 0x0) {
     uint32_t i = (word >> 25) & 0x1;
@@ -48,17 +82,56 @@ int mango_decode(uint32_t word, MangoInsn* out) {
     MangoOp op;
 
     switch (opcode) {
-      case 0x4:
-        op = MANGO_OP_ADD;
+      case 0x0:
+        op = MANGO_OP_AND;
+        break;
+      case 0x1:
+        op = MANGO_OP_EOR;
         break;
       case 0x2:
         op = MANGO_OP_SUB;
         break;
+      case 0x3:
+        op = MANGO_OP_RSB;
+        break;
+      case 0x4:
+        op = MANGO_OP_ADD;
+        break;
+      case 0x5:
+        op = MANGO_OP_ADC;
+        break;
+      case 0x6:
+        op = MANGO_OP_SBC;
+        break;
+      case 0x7:
+        op = MANGO_OP_RSC;
+        break;
+      case 0x8:
+      case 0x9:
+      case 0xA:
+      case 0xB:
+        /* TST/TEQ/CMP/CMN: S=0 here isn't one of these at all (it overlaps
+         * MRS/MSR's encoding instead), so decode nothing rather than
+         * guess. */
+        if (!s) {
+          return -1;
+        }
+        op = opcode == 0x8   ? MANGO_OP_TST
+             : opcode == 0x9 ? MANGO_OP_TEQ
+             : opcode == 0xA ? MANGO_OP_CMP
+                             : MANGO_OP_CMN;
+        break;
+      case 0xC:
+        op = MANGO_OP_ORR;
+        break;
       case 0xD:
         op = MANGO_OP_MOV;
         break;
-      case 0xA:
-        op = MANGO_OP_CMP;
+      case 0xE:
+        op = MANGO_OP_BIC;
+        break;
+      case 0xF:
+        op = MANGO_OP_MVN;
         break;
       default:
         return -1;

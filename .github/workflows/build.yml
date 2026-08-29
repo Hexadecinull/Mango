@@ -68,12 +68,25 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
+      - name: Build and run the real host-native test suite
+        # A completely separate build from the NDK one below: mango_core
+        # (decoder/interp/elf32) and its tests build and run with the
+        # runner's own toolchain, no Android/NDK involved, same as
+        # native/README.md's "without an Android device" section. This is
+        # what actually exercises test_interp.c/test_elf32.c; the NDK
+        # build below only produces the .so, it can't run anything since
+        # its binaries are arm64 Android, not something this runner can
+        # execute directly.
+        run: |
+          cmake -S native -B native/build-host
+          cmake --build native/build-host
+          ctest --test-dir native/build-host --output-on-failure
       - name: Set up NDK
         id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r27c
-      - name: Configure and build
+      - name: Configure and build the actual Android .so
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
@@ -128,8 +141,10 @@ jobs:
         run: |
           cmake -S linux -B linux/build
           cmake --build linux/build
-      - name: Run selfcheck
-        run: ./linux/build/mango_linux_selfcheck
+      - name: Run selfcheck and the real test suite
+        run: |
+          ./linux/build/mango_linux_selfcheck
+          ctest --test-dir linux/build --output-on-failure
 
       - name: Upload linux binaries
         if: always()
